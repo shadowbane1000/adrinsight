@@ -1,6 +1,8 @@
 module github.com/tylerc-atx/adr-insight
 
-go 1.26.1
+go 1.24.1
+
+toolchain go1.26.1
 
 require (
 	github.com/asg017/sqlite-vec-go-bindings v0.1.6

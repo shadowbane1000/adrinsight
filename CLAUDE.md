@@ -50,3 +50,10 @@ Phase 1 — Walking Skeleton. See CONTEXT.md for the full breakdown. The immedia
 ## Tyler's Go Level
 
 Tyler is learning Go through this project. He's an expert in C#/C++/Java/Python. Help him write idiomatic Go — flag non-idiomatic patterns, suggest Go-specific approaches, but don't over-explain basic programming concepts.
+
+## Active Technologies
+- Go 1.22+ (001-p1-foundation)
+- SQLite with sqlite-vec extension (embedded, single file) (001-p1-foundation)
+
+## Recent Changes
+- 001-p1-foundation: Added Go 1.22+

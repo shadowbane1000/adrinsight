@@ -1,0 +1,27 @@
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+adr-insight
+
+# Go vendor (we use modules)
+vendor/
+
+# Database (derived artifact, regenerable via reindex)
+*.db
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.*

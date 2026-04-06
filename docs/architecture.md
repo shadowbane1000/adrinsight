@@ -80,9 +80,10 @@ swappable without changing callers (see ADR-001, Constitution Principle I).
 
 | Interface | Purpose | Implementation |
 |-----------|---------|----------------|
+| Parser    | Parse ADR markdown files | goldmark + goldmark-meta |
 | Embedder  | Convert text to vector embeddings | Ollama (`nomic-embed-text`) |
-| Store     | Persist and search vectors + metadata | SQLite + `sqlite-vec` |
-| LLM       | Synthesize answers from context | Anthropic Claude API |
+| Store     | Persist and search vectors + metadata | SQLite + `sqlite-vec` (mattn/go-sqlite3 + CGO) |
+| LLM       | Synthesize answers from context | Anthropic Claude API (Milestone 2) |
 
 ## Technical Notes
 

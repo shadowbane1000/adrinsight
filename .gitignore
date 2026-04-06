@@ -6,7 +6,7 @@
 *.dylib
 *.test
 *.out
-adr-insight
+/adr-insight
 
 # Go vendor (we use modules)
 vendor/

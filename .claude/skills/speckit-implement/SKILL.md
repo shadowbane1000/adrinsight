@@ -175,6 +175,13 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Confirm the implementation follows the technical plan
    - Report final status with summary of completed work
 
+   **Architecture doc check**: If the implementation added new packages,
+   changed the project structure, introduced new external dependencies, or
+   modified key interfaces, check whether `docs/architecture.md` needs
+   updating. If it does, update the relevant sections (Project Structure,
+   Key Interfaces, Technical Notes) and note the update in the completion
+   report.
+
 Note: This command assumes a complete task breakdown exists in tasks.md. If tasks are incomplete or missing, suggest running `/speckit.tasks` first to regenerate the task list.
 
 10. **Check for extension hooks**: After completion validation, check if `.specify/extensions.yml` exists in the project root.

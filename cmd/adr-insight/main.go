@@ -115,7 +115,7 @@ func cmdSearch(args []string) {
 		if len(preview) > 150 {
 			preview = preview[:150] + "..."
 		}
-		fmt.Printf("%d. [ADR-%03d] %s — %s (score: %.2f)\n   %s\n\n",
+		fmt.Printf("%d. [ADR-%03d] %s — %s (distance: %.2f)\n   %s\n\n",
 			i+1, r.ADRNumber, r.ADRTitle, r.Section, r.Score, preview)
 	}
 }

@@ -1,4 +1,4 @@
-module github.com/tylerc-atx/adr-insight
+module github.com/shadowbane1000/adrinsight
 
 go 1.24.1
 

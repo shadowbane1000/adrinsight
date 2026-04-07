@@ -10,14 +10,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tylerc-atx/adr-insight/internal/embedder"
-	"github.com/tylerc-atx/adr-insight/internal/eval"
-	"github.com/tylerc-atx/adr-insight/internal/llm"
-	"github.com/tylerc-atx/adr-insight/internal/parser"
-	"github.com/tylerc-atx/adr-insight/internal/rag"
-	"github.com/tylerc-atx/adr-insight/internal/reindex"
-	"github.com/tylerc-atx/adr-insight/internal/server"
-	"github.com/tylerc-atx/adr-insight/internal/store"
+	"github.com/shadowbane1000/adrinsight/internal/embedder"
+	"github.com/shadowbane1000/adrinsight/internal/eval"
+	"github.com/shadowbane1000/adrinsight/internal/llm"
+	"github.com/shadowbane1000/adrinsight/internal/parser"
+	"github.com/shadowbane1000/adrinsight/internal/rag"
+	"github.com/shadowbane1000/adrinsight/internal/reindex"
+	"github.com/shadowbane1000/adrinsight/internal/server"
+	"github.com/shadowbane1000/adrinsight/internal/store"
 )
 
 const queryPrefix = "search_query: "

@@ -6,10 +6,10 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/tylerc-atx/adr-insight/internal/parser"
-	"github.com/tylerc-atx/adr-insight/internal/rag"
-	"github.com/tylerc-atx/adr-insight/internal/store"
-	"github.com/tylerc-atx/adr-insight/web"
+	"github.com/shadowbane1000/adrinsight/internal/parser"
+	"github.com/shadowbane1000/adrinsight/internal/rag"
+	"github.com/shadowbane1000/adrinsight/internal/store"
+	"github.com/shadowbane1000/adrinsight/web"
 )
 
 // Server holds the dependencies for the HTTP API.

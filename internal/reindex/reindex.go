@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/tylerc-atx/adr-insight/internal/embedder"
-	"github.com/tylerc-atx/adr-insight/internal/parser"
-	"github.com/tylerc-atx/adr-insight/internal/store"
+	"github.com/shadowbane1000/adrinsight/internal/embedder"
+	"github.com/shadowbane1000/adrinsight/internal/parser"
+	"github.com/shadowbane1000/adrinsight/internal/store"
 )
 
 const docPrefix = "search_document: "

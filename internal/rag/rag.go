@@ -6,9 +6,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/tylerc-atx/adr-insight/internal/embedder"
-	"github.com/tylerc-atx/adr-insight/internal/llm"
-	"github.com/tylerc-atx/adr-insight/internal/store"
+	"github.com/shadowbane1000/adrinsight/internal/embedder"
+	"github.com/shadowbane1000/adrinsight/internal/llm"
+	"github.com/shadowbane1000/adrinsight/internal/store"
 )
 
 const queryPrefix = "search_query: "

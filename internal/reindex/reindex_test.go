@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/tylerc-atx/adr-insight/internal/parser"
-	"github.com/tylerc-atx/adr-insight/internal/store"
+	"github.com/shadowbane1000/adrinsight/internal/parser"
+	"github.com/shadowbane1000/adrinsight/internal/store"
 )
 
 // mockParser returns canned ADRs and chunks.

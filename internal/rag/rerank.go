@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/tylerc-atx/adr-insight/internal/store"
+	"github.com/shadowbane1000/adrinsight/internal/store"
 )
 
 // RerankConfig controls the reranking heuristics.

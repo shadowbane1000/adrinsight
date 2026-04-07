@@ -11,9 +11,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tylerc-atx/adr-insight/internal/llm"
-	"github.com/tylerc-atx/adr-insight/internal/rag"
-	"github.com/tylerc-atx/adr-insight/internal/store"
+	"github.com/shadowbane1000/adrinsight/internal/llm"
+	"github.com/shadowbane1000/adrinsight/internal/rag"
+	"github.com/shadowbane1000/adrinsight/internal/store"
 )
 
 // --- mocks ---

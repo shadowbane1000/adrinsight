@@ -11,8 +11,8 @@ Built using **spec-driven development** with a modified version of GitHub's spec
 The fastest way to run ADR Insight:
 
 ```bash
-git clone https://github.com/tylerc-atx/adr-insight.git
-cd adr-insight
+git clone https://github.com/shadowbane1000/adrinsight.git
+cd adrinsight
 ANTHROPIC_API_KEY=sk-... docker compose up
 ```
 

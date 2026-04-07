@@ -58,6 +58,11 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if s.Pipeline == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "ANTHROPIC_API_KEY not configured"})
+		return
+	}
+
 	resp, err := s.Pipeline.Query(r.Context(), req.Query)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR Insight</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <noscript>
+    <p class="noscript-msg">ADR Insight requires JavaScript to function. Please enable JavaScript in your browser.</p>
+  </noscript>
+
+  <header>
+    <h1 id="header-title">ADR Insight</h1>
+    <form id="search-form">
+      <input type="text" id="search-input" placeholder="Ask a question about architecture decisions..." autocomplete="off">
+      <button type="submit" id="search-btn">Go</button>
+    </form>
+  </header>
+
+  <section id="answer-area" class="hidden">
+    <div id="answer-loading" class="hidden">
+      <div class="spinner"></div>
+      <span>Thinking...</span>
+    </div>
+    <div id="answer-content"></div>
+    <div id="answer-citations"></div>
+  </section>
+
+  <main>
+    <aside id="adr-list">
+      <h2>ADRs</h2>
+      <ul id="adr-list-items"></ul>
+    </aside>
+    <section id="detail-panel">
+      <div id="about-content">
+        <h2>ADR Insight</h2>
+        <p class="about-tagline">AI-powered search and reasoning over Architecture Decision Records</p>
+
+        <h3>Why This Exists</h3>
+        <p>Architecture Decision Records are one of the most valuable artifacts a team can
+        maintain &mdash; but they're only valuable if people actually read them. ADR Insight
+        makes an entire ADR collection queryable through natural language. Instead of
+        grepping through markdown files, you ask a question and get a synthesized answer
+        with citations to the source decisions.</p>
+
+        <h3>What Makes This Interesting</h3>
+        <ul>
+          <li><strong>Full RAG pipeline in Go</strong> &mdash; query embedding, vector similarity
+          search (SQLite + sqlite-vec), context expansion, and LLM synthesis (Anthropic Claude),
+          all orchestrated through clean interfaces</li>
+          <li><strong>Spec-driven development</strong> &mdash; every feature starts as a
+          specification, goes through clarification, planning, ADR generation, task breakdown,
+          and analysis before a line of code is written. Built with a modified version of
+          GitHub's spec-kit that adds ADR generation to the workflow.</li>
+          <li><strong>ADRs are the product</strong> &mdash; the project's own Architecture
+          Decision Records serve triple duty: project documentation, demo dataset for the
+          RAG pipeline, and interview talking points. Ask this system about its own design.</li>
+        </ul>
+
+        <h3>Sample Queries</h3>
+        <p>Try asking questions that require reasoning across multiple ADRs:</p>
+        <ul class="about-queries">
+          <li>&ldquo;What tradeoffs were made by choosing SQLite over PostgreSQL, and how would you migrate if the system needed horizontal scaling?&rdquo;</li>
+          <li>&ldquo;How do the embedding and synthesis components interact, and what would change if we switched LLM providers?&rdquo;</li>
+          <li>&ldquo;What decisions were driven by the constraint of keeping the system deployable as a single binary?&rdquo;</li>
+          <li>&ldquo;If this system needed to support multiple teams with separate ADR collections, which architectural decisions would need to be revisited?&rdquo;</li>
+          <li>&ldquo;What is the chunking strategy and why was it chosen over alternatives like sliding window or semantic chunking?&rdquo;</li>
+          <li>&ldquo;How does the system handle the case where a question has no relevant ADRs?&rdquo;</li>
+        </ul>
+
+        <h3>At Scale</h3>
+        <p>This is a walking skeleton &mdash; intentionally simple to demonstrate end-to-end
+        thinking. In a larger system, the same architectural patterns would extend to:</p>
+        <ul>
+          <li>Swapping SQLite for PostgreSQL + pgvector for concurrent access and horizontal scaling</li>
+          <li>Adding incremental indexing with change detection instead of full reindex</li>
+          <li>Streaming LLM responses for better perceived latency</li>
+          <li>Multi-tenant support with per-project ADR collections</li>
+          <li>Evaluation harness measuring retrieval quality and answer accuracy</li>
+          <li>Observability pipeline &mdash; structured logging, metrics, distributed tracing</li>
+        </ul>
+        <p>The interface-driven architecture means each of these changes is isolated to one
+        component without rippling through the rest of the system.</p>
+
+        <p class="about-author">Built by Tyler Colbert</p>
+        <p><a href="https://github.com/tylerc-atx/adr-insight" target="_blank" rel="noopener">View on GitHub &rarr;</a></p>
+      </div>
+      <div id="adr-detail" class="hidden"></div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

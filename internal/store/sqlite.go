@@ -167,6 +167,18 @@ func (s *SQLiteStore) ListADRs(ctx context.Context) ([]ADRSummary, error) {
 	return adrs, rows.Err()
 }
 
+// IsEmpty checks whether the chunks table has any rows.
+func (s *SQLiteStore) IsEmpty(ctx context.Context) (bool, error) {
+	var count int
+	err := s.db.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM chunks").Scan(&count)
+	if err != nil {
+		// Table may not exist yet — treat as empty.
+		return true, nil
+	}
+	return count == 0, nil
+}
+
 // Close closes the database connection.
 func (s *SQLiteStore) Close() error {
 	return s.db.Close()

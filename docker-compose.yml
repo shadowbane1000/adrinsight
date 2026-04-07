@@ -1,0 +1,34 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8082:8081"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    command:
+      - ./adr-insight
+      - serve
+      - --adr-dir
+      - /data/adr
+      - --db
+      - /data/adr-insight.db
+      - --ollama-url
+      - http://ollama:11434
+    volumes:
+      - ./docs/adr:/data/adr:ro
+      - adr-data:/data
+    depends_on:
+      - ollama
+
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11435:11434"
+    entrypoint: ["/entrypoint.sh"]
+    volumes:
+      - ./docker/ollama-entrypoint.sh:/entrypoint.sh:ro
+      - ollama-models:/root/.ollama
+
+volumes:
+  adr-data:
+  ollama-models:

@@ -1,0 +1,38 @@
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Specs and docs (not needed in image)
+specs/
+.specify/
+.claude/
+docs/
+
+# Database (regenerated via reindex)
+*.db
+
+# Environment files
+.env
+.env.*
+
+# Build artifacts
+/adr-insight
+*.test
+*.out
+
+# Docker files (avoid recursive copies)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# CI
+.gitea/
+.github/
+
+# OS
+.DS_Store
+Thumbs.db

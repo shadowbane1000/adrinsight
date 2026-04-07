@@ -66,6 +66,10 @@ func (m *mockStore) Close() error {
 	return nil
 }
 
+func (m *mockStore) IsEmpty(_ context.Context) (bool, error) {
+	return true, nil
+}
+
 func TestReindexerRun(t *testing.T) {
 	mp := &mockParser{
 		adrs: []parser.ADR{

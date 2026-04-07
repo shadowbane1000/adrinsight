@@ -39,6 +39,7 @@ type mockStore struct {
 func (m *mockStore) Reset(_ context.Context) error                                  { return nil }
 func (m *mockStore) StoreChunks(_ context.Context, _ []store.ChunkRecord) error     { return nil }
 func (m *mockStore) Close() error                                                   { return nil }
+func (m *mockStore) IsEmpty(_ context.Context) (bool, error)                        { return true, nil }
 func (m *mockStore) ListADRs(_ context.Context) ([]store.ADRSummary, error)         { return m.adrs, nil }
 func (m *mockStore) Search(_ context.Context, _ []float32, _ int) ([]store.SearchResult, error) {
 	return m.results, nil

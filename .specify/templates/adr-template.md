@@ -1,8 +1,9 @@
 # ADR-[NUMBER]: [TITLE]
 
-**Status:** [Proposed | Accepted | Deprecated | Superseded]  
+**Status:** [Proposed | Accepted | Deprecated | Superseded by ADR-NNN]  
 **Date:** [YYYY-MM-DD]  
-**Deciders:** [Names]
+**Deciders:** [Names]  
+**Supersedes:** [ADR-NNN (if this ADR overrides a previous decision) | None]
 
 ## Context
 

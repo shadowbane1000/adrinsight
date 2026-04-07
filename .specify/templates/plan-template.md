@@ -94,6 +94,16 @@ ios/ or android/
 **Structure Decision**: [Document the selected structure and reference the real
 directories captured above]
 
+## ADR Impact
+
+> **List any existing ADRs that this feature may need to change or override.**
+> Per Constitution Principle II-A, ADR bodies are immutable once accepted.
+> If a decision must change, plan a new superseding ADR rather than editing the original.
+
+| Existing ADR | Impact | Action |
+|-------------|--------|--------|
+| [e.g., ADR-006] | [Decision no longer applies because...] | [Create ADR-NNN to supersede] |
+
 ## Complexity Tracking
 
 > **Fill ONLY if Constitution Check has violations that must be justified**

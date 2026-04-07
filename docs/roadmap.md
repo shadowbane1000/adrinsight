@@ -4,7 +4,7 @@
 
 **Goal**: `docker-compose up`, open browser, ask a question, get a synthesized answer with citations.
 
-### Week 1 — Foundation
+### Milestone 1 — Foundation
 
 1. Initialize Go module, set up directory structure (`cmd/` + `internal/`)
 2. ADR markdown parser — read a directory, extract frontmatter/metadata (title, date, status) and body text
@@ -13,13 +13,13 @@
 5. `reindex` command: parse → embed → store
 6. Gitea Actions + GitHub Actions CI (lint + test + build)
 
-### Week 2 — The Brain
+### Milestone 2 — The Brain
 
 7. Anthropic integration — send retrieved context + user question, get synthesized answer
 8. RAG pipeline end-to-end: question → embed → retrieve top-K → synthesize → return with citations
 9. HTTP API (at minimum: `POST /query` and `GET /adrs`)
 
-### Week 3 — The Face
+### Milestone 3 — The Face
 
 10. Minimal web UI — search bar, results with citations linking to source ADRs, ADR browse/list view
 11. Dockerfiles (Go app + Ollama with model pre-pulled)
@@ -30,13 +30,41 @@
 
 **Goal**: Polish the walking skeleton into something that demonstrates quality engineering.
 
-- Improve chunking strategy (experiment, document results in an ADR)
-- Hybrid search (keyword + semantic), reranking
-- Web UI polish: ADR browsing/filtering, citation links, status badges
-- ADR metadata awareness (understands supersedes/deprecated relationships)
-- Solid error handling, logging, configuration
+### Milestone 4a — Evaluation Harness
+
+- Test cases from the About page sample queries with ground truth expected ADRs
+- Mechanical scoring (retrieval precision/recall against expected citations)
+- LLM-as-judge scoring (answer accuracy and completeness)
+- CI integration — runs on every PR, fails if scores drop below baseline
+- Establishes the current baseline so retrieval improvements are measurable
+
+### Milestone 4b — Retrieval Improvements
+
+- Improve chunking strategy (experiment with alternatives, measure against harness, ADR the decision)
+- Hybrid search (keyword + semantic via FTS5) with reranking
+- Each change measured against baseline, only shipped if scores improve
+
+### Milestone 5 — ADR Intelligence
+
+- ADR metadata awareness (understands supersedes/deprecated/amended relationships)
+- Parse and store relationship data between ADRs
+- Surface relationship context in synthesized answers and ADR detail views
+- Treat ADRs as a connected graph, not isolated documents
+
+### Milestone 6 — UI & UX Polish
+
+- Web UI improvements: filtering by status, status badges, relationship links
+- Better citation UX (inline highlighting, scroll-to-section)
+- Responsive layout, improved loading states, error recovery
+- Visual polish that makes the demo feel production-quality
+
+### Milestone 7 — Engineering Quality
+
+- Solid error handling and structured logging throughout
+- Configuration management (environment variables, config file support)
 - Revisit early Go code for idiom compliance
-- Write ADRs for every significant decision along the way
+- Integration tests on the RAG pipeline (does retrieval return the right ADRs? does synthesis cite correctly?)
+- Clean, documented API for extensibility
 
 ## Phase 3 — Make It Impressive
 
@@ -44,9 +72,7 @@
 
 - Architecture diagram in the README
 - Comprehensive ADR collection for the project itself
-- Meaningful test strategy (integration tests on RAG pipeline, not coverage for its own sake)
 - Expand CI/CD as needed
-- Clean, documented API for extensibility
 - Blog post or detailed README walkthrough of design philosophy
 
 ## Phase 4 — Optional Stretch

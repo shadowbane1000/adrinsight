@@ -57,6 +57,10 @@
           <li><strong>ADRs are the product</strong> &mdash; the project's own Architecture
           Decision Records serve triple duty: project documentation, demo dataset for the
           RAG pipeline, and interview talking points. Ask this system about its own design.</li>
+          <li><strong>LLM-as-judge evaluation</strong> &mdash; an automated evaluation harness
+          uses a second LLM call to score the system's own answers for accuracy and completeness,
+          alongside mechanical retrieval metrics (precision/recall). Regressions are caught in CI
+          before merge &mdash; the LLM evaluates the LLM.</li>
         </ul>
 
         <h3>Sample Queries</h3>

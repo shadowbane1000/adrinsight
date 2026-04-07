@@ -57,6 +57,8 @@ Tyler is learning Go through this project. He's an expert in C#/C++/Java/Python.
 - Go 1.24+ (same as M1) (002-p1-rag-pipeline)
 - SQLite with sqlite-vec (from M1, unchanged) (002-p1-rag-pipeline)
 - Go 1.24+ (same as M1/M2) (003-p1-web-ui-docker)
+- Go 1.24+ (same as M1-M3) (004-p2-eval-harness)
+- JSON files for test cases, baselines, and results (004-p2-eval-harness)
 
 ## Recent Changes
 - 001-p1-foundation: Added Go 1.22+

@@ -1,4 +1,4 @@
-.PHONY: lint test build check clean
+.PHONY: lint test build check clean eval
 
 lint:
 	golangci-lint run ./...
@@ -11,6 +11,9 @@ build:
 
 check: lint test build
 	@echo "All checks passed."
+
+eval: build
+	./adr-insight eval
 
 clean:
 	rm -f adr-insight adr-insight.db

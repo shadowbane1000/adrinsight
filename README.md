@@ -62,6 +62,7 @@ Open [http://localhost:8081](http://localhost:8081).
 | `reindex` | Parse, embed, and store ADRs |
 | `search` | Search indexed ADRs by similarity |
 | `serve` | Start the HTTP server with web UI |
+| `eval` | Evaluate answer quality against test cases |
 
 ### Flags
 
@@ -74,6 +75,10 @@ Open [http://localhost:8081](http://localhost:8081).
 | `--dev` | `false` | Serve static files from disk (serve only) |
 | `--model` | `claude-sonnet-4-5` | Anthropic model (serve only) |
 | `--top-k` | `5` | Number of search results (search only) |
+| `--cases` | `./testdata/eval/cases.json` | Test case corpus (eval only) |
+| `--baseline` | `./testdata/eval/baseline.json` | Baseline file (eval only) |
+| `--save-baseline` | `false` | Save results as new baseline (eval only) |
+| `--delta` | `0.2` | Max per-question score drop (eval only) |
 
 ### Quality Checks
 
@@ -81,6 +86,7 @@ Open [http://localhost:8081](http://localhost:8081).
 make check    # lint + test + build (all three)
 make lint     # golangci-lint only
 make test     # tests only
+make eval     # run evaluation harness (requires Ollama + API key)
 make clean    # remove binary and database
 ```
 
@@ -108,7 +114,7 @@ This project's own [Architecture Decision Records](docs/adr/) serve as both docu
 | [ADR-003](docs/adr/ADR-003-local-embeddings-ollama.md) | Local Embeddings with Ollama |
 | [ADR-004](docs/adr/ADR-004-sqlite-vector-storage.md) | SQLite Vector Storage |
 | [ADR-005](docs/adr/ADR-005-gitea-primary-github-mirror.md) | Gitea Primary, GitHub Mirror |
-| [ADR-006](docs/adr/ADR-006-ncruces-sqlite-driver.md) | CGO SQLite Driver |
+| [ADR-006](docs/adr/ADR-006-ncruces-sqlite-driver.md) | ncruces/WASM Driver (superseded) |
 | [ADR-007](docs/adr/ADR-007-goldmark-markdown-parsing.md) | Goldmark Markdown Parsing |
 | [ADR-008](docs/adr/ADR-008-section-based-chunking.md) | Section-Based Chunking |
 | [ADR-009](docs/adr/ADR-009-structured-llm-output.md) | Structured LLM Output |
@@ -117,6 +123,8 @@ This project's own [Architecture Decision Records](docs/adr/) serve as both docu
 | [ADR-012](docs/adr/ADR-012-marked-js-client-rendering.md) | marked.js Client Rendering |
 | [ADR-013](docs/adr/ADR-013-go-embed-static-files.md) | go:embed Static Files |
 | [ADR-014](docs/adr/ADR-014-docker-multistage-debian.md) | Docker Multi-Stage Debian |
+| [ADR-015](docs/adr/ADR-015-mattn-cgo-sqlite-driver.md) | mattn/CGO SQLite Driver (supersedes ADR-006) |
+| [ADR-016](docs/adr/ADR-016-llm-judge-evaluation.md) | LLM-as-Judge Evaluation |
 
 ## Author
 

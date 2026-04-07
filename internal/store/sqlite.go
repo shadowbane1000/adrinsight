@@ -193,7 +193,32 @@ func (s *SQLiteStore) IsEmpty(ctx context.Context) (bool, error) {
 	return count == 0, nil
 }
 
+// tokenize splits a string into lowercase alphanumeric tokens, splitting on
+// spaces, punctuation, and symbols. "net/http" → ["net", "http"],
+// "docker-compose" → ["docker", "compose"], "go:embed" → ["go", "embed"].
+func tokenize(s string) []string {
+	// Replace common delimiters with spaces, then split.
+	normalized := strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			return r
+		}
+		if (r >= 'A' && r <= 'Z') {
+			return r + ('a' - 'A') // lowercase
+		}
+		return ' ' // all punctuation/symbols become spaces
+	}, s)
+	var tokens []string
+	for _, t := range strings.Fields(normalized) {
+		if t != "" {
+			tokens = append(tokens, t)
+		}
+	}
+	return tokens
+}
+
 // StoreKeywords saves the keyword vocabulary extracted from ADRs.
+// Multi-word keywords and keywords with punctuation are tokenized into
+// individual words so they can be matched against query terms.
 func (s *SQLiteStore) StoreKeywords(ctx context.Context, words []string) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -212,8 +237,10 @@ func (s *SQLiteStore) StoreKeywords(ctx context.Context, words []string) error {
 	defer func() { _ = stmt.Close() }()
 
 	for _, w := range words {
-		if _, err := stmt.ExecContext(ctx, strings.ToLower(w)); err != nil {
-			return fmt.Errorf("insert keyword %q: %w", w, err)
+		for _, token := range tokenize(w) {
+			if _, err := stmt.ExecContext(ctx, token); err != nil {
+				return fmt.Errorf("insert keyword %q: %w", token, err)
+			}
 		}
 	}
 
@@ -246,26 +273,15 @@ func (s *SQLiteStore) LoadKeywords(ctx context.Context) (map[string]bool, error)
 // If a keyword vocabulary is provided, only terms in the vocabulary are kept
 // (allow-list mode). Otherwise, falls back to stop-word removal.
 func prepareFTSQuery(query string, vocab map[string]bool) string {
-	words := strings.Fields(strings.ToLower(query))
-
-	// Clean each word: strip non-alphanumeric characters.
-	clean := func(w string) string {
-		return strings.Map(func(r rune) rune {
-			if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-				return r
-			}
-			return -1
-		}, w)
-	}
+	tokens := tokenize(query)
 
 	var terms []string
 
 	if vocab != nil {
-		// Allow-list mode: only keep terms that exist in the keyword vocabulary.
-		for _, w := range words {
-			cleaned := clean(w)
-			if cleaned != "" && vocab[cleaned] {
-				terms = append(terms, cleaned)
+		// Allow-list mode: only keep tokens in the keyword vocabulary.
+		for _, t := range tokens {
+			if vocab[t] {
+				terms = append(terms, t)
 			}
 		}
 	} else {
@@ -287,10 +303,9 @@ func prepareFTSQuery(query string, vocab map[string]bool) string {
 			"when": true, "where": true, "which": true, "who": true, "why": true,
 			"will": true, "with": true, "would": true, "you": true, "your": true,
 		}
-		for _, w := range words {
-			cleaned := clean(w)
-			if cleaned != "" && !stopWords[cleaned] {
-				terms = append(terms, cleaned)
+		for _, t := range tokens {
+			if !stopWords[t] {
+				terms = append(terms, t)
 			}
 		}
 	}

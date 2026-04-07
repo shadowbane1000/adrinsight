@@ -40,7 +40,7 @@ func (p *Pipeline) Query(ctx context.Context, question string) (llm.QueryRespons
 	}
 
 	// 2. Search for relevant chunks (hybrid: vector + keyword).
-	results, err := p.Store.HybridSearch(ctx, vecs[0], question, topK, 0.7, 0.3)
+	results, err := p.Store.HybridSearch(ctx, vecs[0], question, topK, 0.6, 0.4)
 	if err != nil {
 		return llm.QueryResponse{}, fmt.Errorf("searching store: %w", err)
 	}
@@ -70,7 +70,13 @@ func (p *Pipeline) Query(ctx context.Context, question string) (llm.QueryRespons
 		adrs = append(adrs, adrInfo{number: r.ADRNumber, title: r.ADRTitle, path: r.ADRPath})
 	}
 
-	// 5. Read full ADR files from disk.
+	// 5. Record retrieved ADR numbers (deterministic, before synthesis).
+	retrievedADRs := make([]int, len(adrs))
+	for i, adr := range adrs {
+		retrievedADRs[i] = adr.number
+	}
+
+	// 6. Read full ADR files from disk.
 	var adrContexts []llm.ADRContext
 	for _, adr := range adrs {
 		content, err := os.ReadFile(adr.path)
@@ -85,6 +91,11 @@ func (p *Pipeline) Query(ctx context.Context, question string) (llm.QueryRespons
 		})
 	}
 
-	// 6. Synthesize answer.
-	return p.LLM.Synthesize(ctx, question, adrContexts)
+	// 7. Synthesize answer.
+	resp, err := p.LLM.Synthesize(ctx, question, adrContexts)
+	if err != nil {
+		return resp, err
+	}
+	resp.RetrievedADRs = retrievedADRs
+	return resp, nil
 }

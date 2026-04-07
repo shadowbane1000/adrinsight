@@ -45,6 +45,7 @@ func (s *SQLiteStore) Reset(ctx context.Context) error {
 		)`,
 		"CREATE VIRTUAL TABLE vec_chunks USING vec0(embedding float[768])",
 		"CREATE VIRTUAL TABLE fts_chunks USING fts5(content)",
+		"CREATE TABLE IF NOT EXISTS keywords (word TEXT PRIMARY KEY)",
 	}
 	for _, stmt := range stmts {
 		if _, err := s.db.ExecContext(ctx, stmt); err != nil {
@@ -192,41 +193,106 @@ func (s *SQLiteStore) IsEmpty(ctx context.Context) (bool, error) {
 	return count == 0, nil
 }
 
-// prepareFTSQuery converts a natural language query into an FTS5 OR query
-// by stripping stop words and joining remaining terms with OR.
-func prepareFTSQuery(query string) string {
-	stopWords := map[string]bool{
-		"a": true, "an": true, "and": true, "are": true, "as": true, "at": true,
-		"be": true, "been": true, "but": true, "by": true, "can": true, "case": true,
-		"could": true, "do": true, "does": true, "for": true, "from": true,
-		"had": true, "has": true, "have": true, "how": true, "i": true,
-		"if": true, "in": true, "into": true, "is": true, "it": true, "its": true,
-		"like": true, "made": true, "may": true, "must": true,
-		"need": true, "needed": true, "needs": true, "no": true, "not": true,
-		"of": true, "on": true, "or": true, "our": true, "over": true,
-		"should": true, "so": true, "some": true, "such": true,
-		"than": true, "that": true, "the": true, "their": true,
-		"them": true, "then": true, "there": true, "these": true, "they": true,
-		"this": true, "to": true, "up": true, "us": true,
-		"was": true, "we": true, "were": true, "what": true,
-		"when": true, "where": true, "which": true, "who": true, "why": true,
-		"will": true, "with": true, "would": true, "you": true, "your": true,
+// StoreKeywords saves the keyword vocabulary extracted from ADRs.
+func (s *SQLiteStore) StoreKeywords(ctx context.Context, words []string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.ExecContext(ctx, "DELETE FROM keywords"); err != nil {
+		return fmt.Errorf("clearing keywords: %w", err)
 	}
 
-	words := strings.Fields(strings.ToLower(query))
-	var terms []string
+	stmt, err := tx.PrepareContext(ctx, "INSERT OR IGNORE INTO keywords (word) VALUES (?)")
+	if err != nil {
+		return fmt.Errorf("prepare keyword insert: %w", err)
+	}
+	defer func() { _ = stmt.Close() }()
+
 	for _, w := range words {
-		// Strip non-alphanumeric characters.
-		cleaned := strings.Map(func(r rune) rune {
+		if _, err := stmt.ExecContext(ctx, strings.ToLower(w)); err != nil {
+			return fmt.Errorf("insert keyword %q: %w", w, err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+// LoadKeywords returns the stored keyword vocabulary, or nil if none stored.
+func (s *SQLiteStore) LoadKeywords(ctx context.Context) (map[string]bool, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT word FROM keywords")
+	if err != nil {
+		return nil, nil // table may not exist
+	}
+	defer func() { _ = rows.Close() }()
+
+	vocab := make(map[string]bool)
+	for rows.Next() {
+		var w string
+		if err := rows.Scan(&w); err != nil {
+			return nil, fmt.Errorf("scan keyword: %w", err)
+		}
+		vocab[w] = true
+	}
+	if len(vocab) == 0 {
+		return nil, nil
+	}
+	return vocab, rows.Err()
+}
+
+// prepareFTSQuery converts a natural language query into an FTS5 OR query.
+// If a keyword vocabulary is provided, only terms in the vocabulary are kept
+// (allow-list mode). Otherwise, falls back to stop-word removal.
+func prepareFTSQuery(query string, vocab map[string]bool) string {
+	words := strings.Fields(strings.ToLower(query))
+
+	// Clean each word: strip non-alphanumeric characters.
+	clean := func(w string) string {
+		return strings.Map(func(r rune) rune {
 			if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
 				return r
 			}
 			return -1
 		}, w)
-		if cleaned == "" || stopWords[cleaned] {
-			continue
+	}
+
+	var terms []string
+
+	if vocab != nil {
+		// Allow-list mode: only keep terms that exist in the keyword vocabulary.
+		for _, w := range words {
+			cleaned := clean(w)
+			if cleaned != "" && vocab[cleaned] {
+				terms = append(terms, cleaned)
+			}
 		}
-		terms = append(terms, cleaned)
+	} else {
+		// Fallback: stop-word removal.
+		stopWords := map[string]bool{
+			"a": true, "an": true, "and": true, "are": true, "as": true, "at": true,
+			"be": true, "been": true, "but": true, "by": true, "can": true, "case": true,
+			"could": true, "do": true, "does": true, "for": true, "from": true,
+			"had": true, "has": true, "have": true, "how": true, "i": true,
+			"if": true, "in": true, "into": true, "is": true, "it": true, "its": true,
+			"like": true, "made": true, "may": true, "must": true,
+			"need": true, "needed": true, "needs": true, "no": true, "not": true,
+			"of": true, "on": true, "or": true, "our": true, "over": true,
+			"should": true, "so": true, "some": true, "such": true,
+			"than": true, "that": true, "the": true, "their": true,
+			"them": true, "then": true, "there": true, "these": true, "they": true,
+			"this": true, "to": true, "up": true, "us": true,
+			"was": true, "we": true, "were": true, "what": true,
+			"when": true, "where": true, "which": true, "who": true, "why": true,
+			"will": true, "with": true, "would": true, "you": true, "your": true,
+		}
+		for _, w := range words {
+			cleaned := clean(w)
+			if cleaned != "" && !stopWords[cleaned] {
+				terms = append(terms, cleaned)
+			}
+		}
 	}
 
 	if len(terms) == 0 {
@@ -237,7 +303,11 @@ func prepareFTSQuery(query string) string {
 
 // SearchFTS performs full-text keyword search using FTS5 BM25 ranking.
 func (s *SQLiteStore) SearchFTS(ctx context.Context, query string, topK int) ([]SearchResult, error) {
-	ftsQuery := prepareFTSQuery(query)
+	return s.searchFTSWithVocab(ctx, query, topK, nil)
+}
+
+func (s *SQLiteStore) searchFTSWithVocab(ctx context.Context, query string, topK int, vocab map[string]bool) ([]SearchResult, error) {
+	ftsQuery := prepareFTSQuery(query, vocab)
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT fts.rowid, fts.rank
 		 FROM fts_chunks fts
@@ -321,8 +391,11 @@ func (s *SQLiteStore) HybridSearch(ctx context.Context, queryVec []float32, quer
 		}
 	}
 
-	// Run FTS search.
-	ftsResults, err := s.SearchFTS(ctx, queryText, topK*2)
+	// Load keyword vocabulary for FTS filtering (if available).
+	vocab, _ := s.LoadKeywords(ctx)
+
+	// Run FTS search (filtered by vocabulary if available).
+	ftsResults, err := s.searchFTSWithVocab(ctx, queryText, topK*2, vocab)
 	if err != nil {
 		// FTS failure is non-fatal — fall back to vector only.
 		ftsResults = nil
@@ -330,7 +403,6 @@ func (s *SQLiteStore) HybridSearch(ctx context.Context, queryVec []float32, quer
 
 	// If no FTS results, return vector-only (keyword weight becomes 0).
 	if len(ftsResults) == 0 {
-		// Deduplicate by ADR number.
 		return deduplicateByADR(vecResults, topK), nil
 	}
 

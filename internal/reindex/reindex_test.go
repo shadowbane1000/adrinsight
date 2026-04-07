@@ -70,6 +70,9 @@ func (m *mockStore) IsEmpty(_ context.Context) (bool, error) {
 	return true, nil
 }
 
+func (m *mockStore) StoreKeywords(_ context.Context, _ []string) error       { return nil }
+func (m *mockStore) LoadKeywords(_ context.Context) (map[string]bool, error) { return nil, nil }
+
 func (m *mockStore) SearchFTS(_ context.Context, _ string, _ int) ([]store.SearchResult, error) {
 	return nil, nil
 }

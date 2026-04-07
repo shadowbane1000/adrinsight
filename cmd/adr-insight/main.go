@@ -67,6 +67,12 @@ func cmdReindex(args []string) {
 	defer func() { _ = st.Close() }()
 
 	r := &reindex.Reindexer{Parser: p, Embedder: emb, Store: st}
+
+	// Use Anthropic for keyword extraction if API key is available.
+	if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" {
+		r.Keywords = llm.NewAnthropicLLM(apiKey, "")
+	}
+
 	switch *chunkStrategy {
 	case "sections":
 		// default — uses Parser.ChunkADR
@@ -120,7 +126,7 @@ func cmdSearch(args []string) {
 		log.Fatal("No embedding returned for query")
 	}
 
-	results, err := st.HybridSearch(ctx, vecs[0], query, *topK, 0.7, 0.3)
+	results, err := st.HybridSearch(ctx, vecs[0], query, *topK, 0.6, 0.4)
 	if err != nil {
 		log.Fatalf("Search failed: %v", err)
 	}

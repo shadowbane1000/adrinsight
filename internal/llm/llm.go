@@ -18,8 +18,9 @@ type Citation struct {
 
 // QueryResponse holds the synthesized answer and its citations.
 type QueryResponse struct {
-	Answer    string     `json:"answer"`
-	Citations []Citation `json:"citations"`
+	Answer        string     `json:"answer"`
+	Citations     []Citation `json:"citations"`
+	RetrievedADRs []int      `json:"retrieved_adrs,omitempty"` // ADR numbers from retrieval (before synthesis)
 }
 
 // LLM synthesizes answers from ADR context.

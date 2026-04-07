@@ -118,14 +118,14 @@ func RunEval(ctx context.Context, cases []TestCase, pipeline *rag.Pipeline, judg
 			continue
 		}
 
-		// Extract returned ADR numbers from citations.
-		var returnedADRs []int
+		// Extract cited ADR numbers from LLM response.
+		var citedADRs []int
 		for _, c := range resp.Citations {
-			returnedADRs = append(returnedADRs, c.ADRNumber)
+			citedADRs = append(citedADRs, c.ADRNumber)
 		}
 
-		// Compute mechanical retrieval scores.
-		precision, recall, f1 := ComputeRetrieval(returnedADRs, tc.ExpectedADRs)
+		// Compute retrieval scores from deterministic search results.
+		precision, recall, f1 := ComputeRetrieval(resp.RetrievedADRs, tc.ExpectedADRs)
 
 		// Score with LLM judge (skip if judge is nil).
 		var jr JudgeResult
@@ -150,7 +150,9 @@ func RunEval(ctx context.Context, cases []TestCase, pipeline *rag.Pipeline, judg
 			ID:                 tc.ID,
 			Question:           tc.Question,
 			Answer:             resp.Answer,
-			ReturnedADRs:       returnedADRs,
+			RetrievedADRs:      resp.RetrievedADRs,
+			CitedADRs:          citedADRs,
+			ReturnedADRs:       citedADRs, // backward compat
 			Precision:          precision,
 			Recall:             recall,
 			F1:                 f1,

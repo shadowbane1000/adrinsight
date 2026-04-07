@@ -122,5 +122,43 @@ func outputSchema() map[string]any {
 	}
 }
 
+const keywordPrompt = `Extract the key technical search terms from this Architecture Decision Record. Return ONLY a JSON array of lowercase strings. Include: technology names, product names, library names, protocol names, file formats, architectural patterns, and domain-specific technical concepts. Exclude: common English words, verbs, adjectives, and generic software terms like "system", "application", "server" unless they are part of a proper name.
+
+ADR Title: %s
+
+ADR Content:
+%s`
+
+// ExtractKeywords uses the LLM to extract technical search terms from an ADR.
+func (a *AnthropicLLM) ExtractKeywords(ctx context.Context, title, body string) ([]string, error) {
+	resp, err := a.client.Messages.New(ctx, anthropic.MessageNewParams{
+		Model:     anthropic.ModelClaudeHaiku4_5_20251001,
+		MaxTokens: 1024,
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock(fmt.Sprintf(keywordPrompt, title, body))),
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("keyword extraction: %w", err)
+	}
+
+	if len(resp.Content) == 0 {
+		return nil, fmt.Errorf("empty response")
+	}
+
+	text := resp.Content[0].Text
+	start := strings.Index(text, "[")
+	end := strings.LastIndex(text, "]")
+	if start == -1 || end == -1 || end <= start {
+		return nil, fmt.Errorf("no JSON array in response: %s", text)
+	}
+
+	var keywords []string
+	if err := json.Unmarshal([]byte(text[start:end+1]), &keywords); err != nil {
+		return nil, fmt.Errorf("parsing keywords: %w", err)
+	}
+	return keywords, nil
+}
+
 // Verify AnthropicLLM implements LLM.
 var _ LLM = (*AnthropicLLM)(nil)

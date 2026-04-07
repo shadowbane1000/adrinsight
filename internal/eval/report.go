@@ -32,8 +32,9 @@ func PrintReport(w io.Writer, report *RunReport, cases []TestCase, baseline *Bas
 
 	for _, r := range report.Results {
 		p("Question: %s\n", truncateStr(r.Question, 70))
-		p("  Citations: %s (expected: %s)\n",
-			formatADRList(r.ReturnedADRs), formatADRList(caseMap[r.ID].ExpectedADRs))
+		p("  Retrieved: %s (expected: %s)\n",
+			formatADRList(r.RetrievedADRs), formatADRList(caseMap[r.ID].ExpectedADRs))
+		p("  Cited:     %s\n", formatADRList(r.CitedADRs))
 		p("  Precision: %.2f  Recall: %.2f  F1: %.2f\n", r.Precision, r.Recall, r.F1)
 		p("  Accuracy:  %.2f — %q\n", r.Accuracy, truncateStr(r.AccuracyReason, 60))
 		p("  Completeness: %.2f — %q\n", r.Completeness, truncateStr(r.CompletenessReason, 60))

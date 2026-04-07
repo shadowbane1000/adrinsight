@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	sqlite_vec "github.com/asg017/sqlite-vec-go-bindings/cgo"
 	_ "github.com/mattn/go-sqlite3"
@@ -191,14 +192,58 @@ func (s *SQLiteStore) IsEmpty(ctx context.Context) (bool, error) {
 	return count == 0, nil
 }
 
+// prepareFTSQuery converts a natural language query into an FTS5 OR query
+// by stripping stop words and joining remaining terms with OR.
+func prepareFTSQuery(query string) string {
+	stopWords := map[string]bool{
+		"a": true, "an": true, "and": true, "are": true, "as": true, "at": true,
+		"be": true, "been": true, "but": true, "by": true, "can": true, "case": true,
+		"could": true, "do": true, "does": true, "for": true, "from": true,
+		"had": true, "has": true, "have": true, "how": true, "i": true,
+		"if": true, "in": true, "into": true, "is": true, "it": true, "its": true,
+		"like": true, "made": true, "may": true, "must": true,
+		"need": true, "needed": true, "needs": true, "no": true, "not": true,
+		"of": true, "on": true, "or": true, "our": true, "over": true,
+		"should": true, "so": true, "some": true, "such": true,
+		"than": true, "that": true, "the": true, "their": true,
+		"them": true, "then": true, "there": true, "these": true, "they": true,
+		"this": true, "to": true, "up": true, "us": true,
+		"was": true, "we": true, "were": true, "what": true,
+		"when": true, "where": true, "which": true, "who": true, "why": true,
+		"will": true, "with": true, "would": true, "you": true, "your": true,
+	}
+
+	words := strings.Fields(strings.ToLower(query))
+	var terms []string
+	for _, w := range words {
+		// Strip non-alphanumeric characters.
+		cleaned := strings.Map(func(r rune) rune {
+			if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+				return r
+			}
+			return -1
+		}, w)
+		if cleaned == "" || stopWords[cleaned] {
+			continue
+		}
+		terms = append(terms, cleaned)
+	}
+
+	if len(terms) == 0 {
+		return query // fall back to original
+	}
+	return strings.Join(terms, " OR ")
+}
+
 // SearchFTS performs full-text keyword search using FTS5 BM25 ranking.
 func (s *SQLiteStore) SearchFTS(ctx context.Context, query string, topK int) ([]SearchResult, error) {
+	ftsQuery := prepareFTSQuery(query)
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT fts.rowid, fts.rank
 		 FROM fts_chunks fts
 		 WHERE fts_chunks MATCH ?
 		 ORDER BY rank
-		 LIMIT ?`, query, topK)
+		 LIMIT ?`, ftsQuery, topK)
 	if err != nil {
 		return nil, fmt.Errorf("fts search: %w", err)
 	}

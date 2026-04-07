@@ -1,6 +1,5 @@
 {
-  "created_at": "2026-04-07T19:01:10.936528525Z",
-  "delta_threshold": 0.2,
+  "timestamp": "2026-04-07T18:59:14.612301634Z",
   "results": [
     {
       "id": "sqlite-tradeoffs",
@@ -108,5 +107,57 @@
       "accuracy_reason": "The answer fabricates content that doesn't exist in the provided ADR. The ground truth ADR-009 is about structured JSON output via Anthropic OutputConfig and contains nothing about handling cases with no relevant ADRs, hybrid search, FTS5 fallback, or any of the other mechanisms described. The answer references ADR-017 and ADR-016 which aren't in the ground truth at all.",
       "completeness_reason": "The answer completely fails to address the question because the provided ADR (ADR-009) doesn't contain any information about how the system handles questions with no relevant ADRs. The answer should acknowledge this gap rather than fabricate information from non-existent ADRs."
     }
-  ]
+  ],
+  "aggregate": {
+    "avg_precision": 0.625,
+    "avg_recall": 0.5166666666666667,
+    "avg_f1": 0.5555555555555555,
+    "avg_accuracy": 0.7999999999999999,
+    "avg_completeness": 0.7000000000000001
+  },
+  "regressions": [
+    {
+      "id": "single-binary-constraint",
+      "dimension": "precision",
+      "baseline_score": 1,
+      "current_score": 0.75,
+      "delta": 0.25
+    },
+    {
+      "id": "single-binary-constraint",
+      "dimension": "recall",
+      "baseline_score": 0.8,
+      "current_score": 0.6,
+      "delta": 0.20000000000000007
+    },
+    {
+      "id": "single-binary-constraint",
+      "dimension": "f1",
+      "baseline_score": 0.888888888888889,
+      "current_score": 0.6666666666666665,
+      "delta": 0.22222222222222243
+    },
+    {
+      "id": "single-binary-constraint",
+      "dimension": "completeness",
+      "baseline_score": 1,
+      "current_score": 0.6,
+      "delta": 0.4
+    },
+    {
+      "id": "no-relevant-adrs",
+      "dimension": "accuracy",
+      "baseline_score": 1,
+      "current_score": 0.2,
+      "delta": 0.8
+    },
+    {
+      "id": "no-relevant-adrs",
+      "dimension": "completeness",
+      "baseline_score": 1,
+      "current_score": 0,
+      "delta": 1
+    }
+  ],
+  "new_cases": null
 }

@@ -12,11 +12,15 @@ import (
 
 const docPrefix = "search_document: "
 
+// ChunkFunc is a function that splits an ADR into chunks.
+type ChunkFunc func(adr parser.ADR) []parser.Chunk
+
 // Reindexer orchestrates the parse → embed → store pipeline.
 type Reindexer struct {
 	Parser   parser.Parser
 	Embedder embedder.Embedder
 	Store    store.Store
+	ChunkFn  ChunkFunc // optional override; defaults to Parser.ChunkADR
 }
 
 // Result holds summary information about a reindex run.
@@ -34,9 +38,13 @@ func (r *Reindexer) Run(ctx context.Context, adrDir string) (*Result, error) {
 	log.Printf("Parsed %d ADRs from %s", len(adrs), adrDir)
 
 	// Chunk all ADRs.
+	chunkFn := r.ChunkFn
+	if chunkFn == nil {
+		chunkFn = r.Parser.ChunkADR
+	}
 	var chunks []parser.Chunk
 	for _, adr := range adrs {
-		chunks = append(chunks, r.Parser.ChunkADR(adr)...)
+		chunks = append(chunks, chunkFn(adr)...)
 	}
 	log.Printf("Generated %d chunks", len(chunks))
 

@@ -1,0 +1,185 @@
+{
+  "timestamp": "2026-04-07T18:41:06.434605566Z",
+  "results": [
+    {
+      "id": "sqlite-tradeoffs",
+      "question": "What tradeoffs were made by choosing SQLite over PostgreSQL, and how would you migrate if the system needed horizontal scaling?",
+      "answer": "ADR Insight chose SQLite over PostgreSQL primarily for simplicity and zero-configuration deployment, but this creates significant tradeoffs around horizontal scaling. **Key tradeoffs made:** (1) SQLite is embedded and file-based, eliminating the need for a separate database server—this supports the 'docker compose up just works' developer experience (ADR-014, Principle V), but means no native support for multiple application instances reading/writing concurrently. (2) SQLite with sqlite-vec (ADR-004) enables vector similarity search in a single process, avoiding network hops to a separate vector database, but limits you to vertical scaling only. (3) The CGO-enabled mattn/go-sqlite3 driver (ADR-006, ADR-014) produces dynamically linked binaries that complicate containerization but provide the sqlite-vec compatibility needed. **Migration path for horizontal scaling:** (1) Move to PostgreSQL with pgvector extension—this is the most straightforward path since pgvector provides similar vector search capabilities to sqlite-vec. The migration would involve: exporting ADR documents and embeddings from SQLite, creating equivalent PostgreSQL schemas with vector columns, reimporting data, and swapping the database driver (the codebase should already abstract the storage layer). (2) Consider a dedicated vector database (Qdrant, Weaviate, Milvus) if vector search performance becomes critical at scale, though this adds operational complexity. (3) The Go application would need a load balancer in front of multiple instances, and the shared PostgreSQL instance becomes the coordination point. The ADRs don't explicitly discuss horizontal scaling as a requirement—the project is scoped as a portfolio piece for 'dozens to low hundreds of ADRs' (ADR-002), which fits comfortably within SQLite's single-instance performance envelope. The constitution's Principle III (Skateboard First) explicitly chose simplicity over premature optimization, accepting that scaling requirements would drive architecture evolution later.",
+      "returned_adrs": [
+        14,
+        2,
+        1
+      ],
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "accuracy": 0,
+      "completeness": 0,
+      "accuracy_reason": "skipped",
+      "completeness_reason": "skipped"
+    },
+    {
+      "id": "embedding-synthesis-interaction",
+      "question": "How do the embedding and synthesis components interact, and what would change if we switched LLM providers?",
+      "answer": "The embedding and synthesis components interact through a two-stage RAG pipeline. First, the embedding component (Ollama running nomic-embed-text locally) converts both ADR sections and user questions into 768-dimensional vectors for similarity search. When a user asks a question, the top matching ADR sections are retrieved, then the synthesis component (Anthropic Claude) receives the full ADR documents (not just matched chunks) to generate an answer with structured citations using constrained JSON output.\n\nIf you switched LLM providers, several things would change:\n\n1. **API Integration Layer**: The synthesis component would need a new API client implementation, but this is isolated behind the LLM interface abstraction established in ADR-002, making it a configuration change rather than a rewrite.\n\n2. **Structured Output Mechanism**: ADR-009's use of Anthropic's OutputConfig with JSONOutputFormatParam for guaranteed valid JSON is provider-specific. Other providers might require tool-use/function calling, prompt-based JSON extraction, or different constrained decoding approaches. You'd need to adapt the structured output strategy while maintaining the same schema contract.\n\n3. **Embeddings Remain Unchanged**: The embedding component (ADR-003) uses local Ollama and is completely independent of the synthesis LLM provider. Switching synthesis providers wouldn't affect embedding operations at all.\n\n4. **Context Window Considerations**: ADR-010's decision to send full ADR documents to synthesis relies on Claude's large context window. A different provider with smaller context limits might require chunking strategies or summarization.\n\n5. **API Key Requirements**: You'd switch from needing an Anthropic API key to whatever the new provider requires, though the zero-external-dependency embedding story remains intact.",
+      "returned_adrs": [
+        2,
+        3,
+        9,
+        10
+      ],
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "accuracy": 0,
+      "completeness": 0,
+      "accuracy_reason": "skipped",
+      "completeness_reason": "skipped"
+    },
+    {
+      "id": "single-binary-constraint",
+      "question": "What decisions were driven by the constraint of keeping the system deployable as a single binary?",
+      "answer": "The single binary deployment constraint drove several key architectural decisions across multiple ADRs. The most direct impact was the choice to use Go's `go:embed` directive (ADR-013) to bake static files (HTML, CSS, JavaScript) directly into the production binary. This eliminated the need to deploy static files separately alongside the binary, simplifying the Docker image to just the binary and runtime libraries. Without this approach, the deployment would have required managing file paths and copying assets separately, which could lead to missing-file errors at runtime. The constraint also influenced the overall language choice (ADR-001), as Go's ability to compile to a static binary with no runtime dependencies was explicitly cited as supporting the 'clone and run' developer experience goal and enabling small, fast Docker images. The multi-stage Docker build approach (ADR-014) was designed to accommodate the CGO requirements while still producing a single binary artifact—the build complexity is hidden in the Docker build process, but the output remains a single deployable binary. The use of Go's standard library net/http (ADR-011) also aligns with this philosophy, as avoiding framework dependencies keeps the binary self-contained with zero third-party HTTP dependencies to manage. Throughout these decisions, the theme is eliminating external file dependencies, runtime requirements, and deployment complexity to achieve a 'just the binary' deployment model that works with simple `docker compose up` commands.",
+      "returned_adrs": [
+        13,
+        13,
+        1,
+        14,
+        11
+      ],
+      "precision": 1,
+      "recall": 0.8,
+      "f1": 0.888888888888889,
+      "accuracy": 0,
+      "completeness": 0,
+      "accuracy_reason": "skipped",
+      "completeness_reason": "skipped"
+    },
+    {
+      "id": "multi-team-revisit",
+      "question": "If this system needed to support multiple teams with separate ADR collections, which architectural decisions would need to be revisited?",
+      "answer": "To support multiple teams with separate ADR collections, several architectural decisions would need to be revisited. **ADR-004 (SQLite Storage)** would face the most significant challenges: the single-file database model doesn't naturally support multi-tenancy, and SQLite's single-writer concurrency limitation becomes problematic with multiple teams potentially indexing simultaneously. The storage layer would need either separate database files per team (complicating management and queries) or migration to a multi-tenant-capable system like PostgreSQL with pgvector. **ADR-014 (Docker Build)** and **ADR-011 (HTTP Server)** would need expansion: the containerization strategy would need to support either multiple database files or connection pooling to a shared database, and the HTTP API would need authentication/authorization middleware and tenant identification (likely via headers or path prefixes like `/teams/{id}/query`). The standard library `net/http` approach could still work but would require manual auth implementation, making frameworks like Chi more attractive. **ADR-005 (Gitea/GitHub)** might need reconsideration if teams require separate CI/CD pipelines or access controls. The mirror-to-GitHub model works for a single public project but doesn't address per-team isolation. **ADR-001 (Go language choice)** remains valid, though Go's simplicity would mean manually implementing multi-tenancy patterns rather than leaning on framework abstractions.",
+      "returned_adrs": [
+        4,
+        14,
+        11,
+        5
+      ],
+      "precision": 0.5,
+      "recall": 0.5,
+      "f1": 0.5,
+      "accuracy": 0,
+      "completeness": 0,
+      "accuracy_reason": "skipped",
+      "completeness_reason": "skipped"
+    },
+    {
+      "id": "chunking-strategy",
+      "question": "What is the chunking strategy and why was it chosen over alternatives like sliding window or semantic chunking?",
+      "answer": "The chunking strategy is section-based chunking, where ADR documents are split by H2 headings (## Context, ## Decision, ## Rationale, etc.), with each section becoming one chunk. If an ADR has no H2 headings, the entire body becomes a single chunk.\n\nThis strategy was chosen for several reasons: First, ADR sections represent natural semantic boundaries - Context, Decision, Rationale, and Consequences are semantically distinct units that users would want to retrieve. Second, it provides the right granularity for the corpus, as ADR sections are typically 1-5 paragraphs, fitting comfortably within nomic-embed-text's 8192 token context window while producing focused semantic content. Third, it's simple to implement using goldmark's AST walking without additional dependencies or configuration.\n\nThe strategy was chosen over alternatives based on the Constitution's Principle III (Skateboard First). Sliding window approaches with fixed-size token windows were explicitly deferred to Phase 2 because they add complexity (token counting, overlap management) that wasn't justified without retrieval quality data. Semantic chunking at the paragraph level was also deferred to Phase 2 as it was considered too granular - paragraphs within ADR sections are tightly coupled, and paragraph-level splitting would increase chunk count without clear retrieval benefit at the current scale.\n\nThe decision acknowledges trade-offs: there's no overlap between chunks, very short sections produce thin vectors, and very long sections aren't subdivided. However, these limitations were considered acceptable for the initial implementation, with the explicit plan to revisit chunking in Phase 2 after gathering real-world retrieval quality data.",
+      "returned_adrs": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "precision": 1,
+      "recall": 0.5,
+      "f1": 0.6666666666666666,
+      "accuracy": 0,
+      "completeness": 0,
+      "accuracy_reason": "skipped",
+      "completeness_reason": "skipped"
+    },
+    {
+      "id": "no-relevant-adrs",
+      "question": "How does the system handle the case where a question has no relevant ADRs?",
+      "answer": "When a question has no relevant ADRs, the system is designed to communicate this clearly to the user. According to ADR-016, one of the core rules for the synthesis process is: 'If the ADRs don't contain relevant information, say so clearly.' This is enforced through the LLM synthesis prompt, which explicitly instructs the model not to invent or hallucinate information not present in the ADRs. The system uses Anthropic's Claude API (per ADR-002) with structured JSON output (per ADR-009) to ensure reliable, parseable responses. Even when no relevant ADRs are found, the structured output format guarantees a valid JSON response with an answer field that would contain a clear statement indicating the lack of relevant information, rather than fabricating an answer. This approach prioritizes accuracy over completeness—the LLM-as-judge evaluation framework introduced in ADR-016 scores answers on both accuracy and completeness, reinforcing that an honest 'no relevant information found' response is preferable to a hallucinated answer.",
+      "returned_adrs": [
+        16,
+        2,
+        9
+      ],
+      "precision": 0.3333333333333333,
+      "recall": 1,
+      "f1": 0.5,
+      "accuracy": 0,
+      "completeness": 0,
+      "accuracy_reason": "skipped",
+      "completeness_reason": "skipped"
+    }
+  ],
+  "aggregate": {
+    "avg_precision": 0.638888888888889,
+    "avg_recall": 0.6333333333333333,
+    "avg_f1": 0.5925925925925926,
+    "avg_accuracy": 0,
+    "avg_completeness": 0
+  },
+  "regressions": [
+    {
+      "id": "embedding-synthesis-interaction",
+      "dimension": "accuracy",
+      "baseline_score": 1,
+      "current_score": 0,
+      "delta": 1
+    },
+    {
+      "id": "embedding-synthesis-interaction",
+      "dimension": "completeness",
+      "baseline_score": 1,
+      "current_score": 0,
+      "delta": 1
+    },
+    {
+      "id": "single-binary-constraint",
+      "dimension": "accuracy",
+      "baseline_score": 0.4,
+      "current_score": 0,
+      "delta": 0.4
+    },
+    {
+      "id": "single-binary-constraint",
+      "dimension": "completeness",
+      "baseline_score": 0.6,
+      "current_score": 0,
+      "delta": 0.6
+    },
+    {
+      "id": "multi-team-revisit",
+      "dimension": "accuracy",
+      "baseline_score": 0.4,
+      "current_score": 0,
+      "delta": 0.4
+    },
+    {
+      "id": "multi-team-revisit",
+      "dimension": "completeness",
+      "baseline_score": 0.6,
+      "current_score": 0,
+      "delta": 0.6
+    },
+    {
+      "id": "chunking-strategy",
+      "dimension": "accuracy",
+      "baseline_score": 1,
+      "current_score": 0,
+      "delta": 1
+    },
+    {
+      "id": "chunking-strategy",
+      "dimension": "completeness",
+      "baseline_score": 1,
+      "current_score": 0,
+      "delta": 1
+    },
+    {
+      "id": "no-relevant-adrs",
+      "dimension": "accuracy",
+      "baseline_score": 0.4,
+      "current_score": 0,
+      "delta": 0.4
+    }
+  ],
+  "new_cases": null
+}

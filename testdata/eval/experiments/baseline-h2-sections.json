@@ -1,0 +1,178 @@
+{
+  "timestamp": "2026-04-07T18:36:13.161541294Z",
+  "results": [
+    {
+      "id": "sqlite-tradeoffs",
+      "question": "What tradeoffs were made by choosing SQLite over PostgreSQL, and how would you migrate if the system needed horizontal scaling?",
+      "answer": "The ADRs provided do not contain a decision record about choosing SQLite over PostgreSQL. None of the ADRs (ADR-001 on Go, ADR-002 on Claude, ADR-007 on goldmark, ADR-011 on net/http, or ADR-013 on go:embed) discuss database technology selection. Without an ADR documenting the database choice, I cannot provide specific tradeoffs that were considered or migration strategies that were planned. If you have an ADR covering database selection (likely ADR-004, ADR-005, ADR-006, or another number not provided), please share it so I can answer your question about SQLite vs PostgreSQL tradeoffs and horizontal scaling migration paths.",
+      "returned_adrs": null,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "accuracy": 0,
+      "completeness": 0,
+      "accuracy_reason": "skipped",
+      "completeness_reason": "skipped"
+    },
+    {
+      "id": "embedding-synthesis-interaction",
+      "question": "How do the embedding and synthesis components interact, and what would change if we switched LLM providers?",
+      "answer": "The embedding and synthesis components interact through a two-stage RAG pipeline. First, the embedding component (ADR-003: Ollama with nomic-embed-text running locally) converts both ADR text (at indexing time) and user questions (at query time) into vector embeddings for semantic search. This retrieval step identifies relevant ADR sections. Second, the synthesis component (ADR-002: Anthropic Claude API) receives the full content of matched ADRs expanded from the filesystem (ADR-010) and generates a natural-language answer with structured citations using constrained JSON output (ADR-009).\n\nIf you switched LLM providers, the changes would depend on which component you're replacing:\n\n**Switching the synthesis provider (away from Anthropic Claude):** ADR-002 explicitly mitigates this by abstracting the LLM provider behind a Go interface from the start, making it 'a configuration change, not a rewrite.' However, you'd need to address ADR-009's structured output approach—Anthropic's OutputConfig with constrained JSON decoding is provider-specific. Other providers might require tool-use/function-calling or prompt-based JSON extraction, which ADR-009 notes could be implemented 'behind the same interface' but with different reliability characteristics. The JSON schema contract between the LLM layer and HTTP handler would remain unchanged.\n\n**Switching the embedding provider (away from Ollama):** ADR-003 states that 'the LLM provider interface abstraction extends to embeddings—swapping to a cloud embedding provider later is a configuration change, not a rewrite.' Moving to a cloud embedding API (like OpenAI's) would eliminate the Docker/local model requirement but add a second API key dependency and per-request costs, reversing the 'zero external dependencies for embeddings' advantage. The vector dimensions might change (nomic-embed-text produces 768-dimensional embeddings), requiring reindexing if the new model uses different dimensions.",
+      "returned_adrs": [
+        3,
+        2,
+        9,
+        10
+      ],
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "accuracy": 0,
+      "completeness": 0,
+      "accuracy_reason": "skipped",
+      "completeness_reason": "skipped"
+    },
+    {
+      "id": "single-binary-constraint",
+      "question": "What decisions were driven by the constraint of keeping the system deployable as a single binary?",
+      "answer": "The single binary deployment constraint drove several key architectural decisions: (1) Using Go's `go:embed` directive to bake all static web UI files directly into the compiled binary rather than deploying them separately, which eliminates file path configuration and missing asset errors at runtime (ADR-013). (2) Selecting a multi-stage Docker build with Debian Bookworm that produces a runtime image containing only the binary and essential runtime libraries, avoiding the need to copy additional files alongside the executable (ADR-014). (3) Choosing Go itself as the language, since it compiles to a static binary with no runtime dependencies, enabling fast Docker image builds and simple 'docker-compose up' deployment (ADR-001). (4) Using the Go standard library's net/http instead of external HTTP frameworks, keeping dependencies minimal and everything needed contained within the single binary (ADR-011). The embedded static files approach specifically eliminated deployment complexity by ensuring 'no need to copy files alongside the binary, manage paths, or worry about missing assets at runtime' while keeping 'the Docker image (just the binary + runtime libraries)' simple.",
+      "returned_adrs": [
+        13,
+        14,
+        1,
+        11
+      ],
+      "precision": 1,
+      "recall": 0.8,
+      "f1": 0.888888888888889,
+      "accuracy": 0,
+      "completeness": 0,
+      "accuracy_reason": "skipped",
+      "completeness_reason": "skipped"
+    },
+    {
+      "id": "multi-team-revisit",
+      "question": "If this system needed to support multiple teams with separate ADR collections, which architectural decisions would need to be revisited?",
+      "answer": "Supporting multiple teams with separate ADR collections would require revisiting several architectural decisions that currently assume a single-tenant, single-collection model:\n\n**Storage Architecture (ADR-004)**: The SQLite database is currently a single file storing all ADRs. A multi-tenant system would need either (1) separate SQLite database files per team, (2) a partitioning scheme within a single database with team_id columns, or (3) migration to a client-server database like PostgreSQL that better supports multi-tenancy. The current \"disposable index\" model would need careful consideration around isolation and regeneration workflows per team.\n\n**HTTP API Design (ADR-011)**: The three endpoints (POST /query, GET /adrs, GET /adrs/{number}) have no concept of team scope. You'd need to add team identification, likely as path prefixes (/teams/{team_id}/adrs) or request headers, and implement authorization to ensure teams can only access their own ADR collections. The current stdlib-only approach would still work but would require manual tenant isolation logic in handlers.\n\n**File System Organization**: The current system assumes ADRs live in a single directory structure. Multi-team support would require either (1) separate directories per team with a discovery/registration mechanism, or (2) a metadata convention (e.g., front matter) identifying team ownership. The indexing pipeline would need to handle multiple source locations.\n\n**Evaluation Framework (ADR-016)**: The LLM-as-judge evaluation assumes a single ground truth corpus. With multiple teams, test cases and ground truth would need to be team-scoped, and regression detection would need to work per-team or aggregate across teams carefully to avoid one team's changes affecting another's quality metrics.\n\nThe ADRs don't directly address authentication, authorization, or data isolation patterns, so those would be entirely new architectural concerns requiring new ADRs.",
+      "returned_adrs": [
+        4,
+        11,
+        16
+      ],
+      "precision": 0.6666666666666666,
+      "recall": 0.5,
+      "f1": 0.5714285714285715,
+      "accuracy": 0,
+      "completeness": 0,
+      "accuracy_reason": "skipped",
+      "completeness_reason": "skipped"
+    },
+    {
+      "id": "chunking-strategy",
+      "question": "What is the chunking strategy and why was it chosen over alternatives like sliding window or semantic chunking?",
+      "answer": "The chunking strategy is **section-based chunking**: ADR documents are split at H2 headings (## Context, ## Decision, ## Rationale, etc.), with each section becoming one chunk. If an ADR has no H2 headings, the entire body becomes a single chunk.\n\nThis approach was chosen over alternatives because:\n\n1. **Natural semantic boundaries**: ADR sections represent distinct aspects of a decision (problem, choice, reasoning, impact), making them the natural units for retrieval.\n\n2. **Right granularity**: ADR sections typically span 1-5 paragraphs, fitting comfortably within the embedding model's 8192 token context window while maintaining focused semantic content.\n\n3. **Simplicity**: It requires no configuration, chunk size tuning, or additional dependencies - just straightforward H2 heading detection via goldmark's AST walking.\n\n4. **Constitutional alignment**: Following Principle III (Skateboard First), this is the simplest strategy that could work. More sophisticated approaches are explicitly deferred to Phase 2.\n\n**Why not sliding window**: Fixed-size token windows with overlap were deferred to Phase 2 as they add complexity (token counting, overlap management) not justified until retrieval quality data exists to guide optimization.\n\n**Why not semantic chunking**: Not explicitly discussed, but paragraph-level splitting (a form of semantic chunking) was deferred to Phase 2 as too granular - ADR paragraphs within sections are tightly coupled, and finer splitting would increase chunk count without clear retrieval benefit at current scale.\n\nThe decision acknowledges trade-offs: no overlap between chunks means queries spanning multiple sections may not match perfectly, and very long sections aren't subdivided. However, these are acceptable at the current corpus scale (5 ADRs, ~20 chunks) with the chunking logic isolated for easy replacement once real retrieval data is available.",
+      "returned_adrs": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "precision": 1,
+      "recall": 0.5,
+      "f1": 0.6666666666666666,
+      "accuracy": 0,
+      "completeness": 0,
+      "accuracy_reason": "skipped",
+      "completeness_reason": "skipped"
+    },
+    {
+      "id": "no-relevant-adrs",
+      "question": "How does the system handle the case where a question has no relevant ADRs?",
+      "answer": "When a question has no relevant ADRs, the system does not have explicit documentation on how this case is handled. The provided ADRs focus on how the system retrieves and synthesizes answers when ADRs ARE found (ADR-010 describes full ADR expansion, ADR-009 describes structured output format), but none of the ADRs address the failure case where similarity search returns no matches or the matches are below a relevance threshold. The system's behavior in this scenario would need to be specified in a separate ADR or implementation detail not covered in these documents.",
+      "returned_adrs": [
+        10,
+        9
+      ],
+      "precision": 0.5,
+      "recall": 1,
+      "f1": 0.6666666666666666,
+      "accuracy": 0,
+      "completeness": 0,
+      "accuracy_reason": "skipped",
+      "completeness_reason": "skipped"
+    }
+  ],
+  "aggregate": {
+    "avg_precision": 0.6944444444444443,
+    "avg_recall": 0.6333333333333333,
+    "avg_f1": 0.6322751322751322,
+    "avg_accuracy": 0,
+    "avg_completeness": 0
+  },
+  "regressions": [
+    {
+      "id": "embedding-synthesis-interaction",
+      "dimension": "accuracy",
+      "baseline_score": 1,
+      "current_score": 0,
+      "delta": 1
+    },
+    {
+      "id": "embedding-synthesis-interaction",
+      "dimension": "completeness",
+      "baseline_score": 1,
+      "current_score": 0,
+      "delta": 1
+    },
+    {
+      "id": "single-binary-constraint",
+      "dimension": "accuracy",
+      "baseline_score": 0.4,
+      "current_score": 0,
+      "delta": 0.4
+    },
+    {
+      "id": "single-binary-constraint",
+      "dimension": "completeness",
+      "baseline_score": 0.6,
+      "current_score": 0,
+      "delta": 0.6
+    },
+    {
+      "id": "multi-team-revisit",
+      "dimension": "accuracy",
+      "baseline_score": 0.4,
+      "current_score": 0,
+      "delta": 0.4
+    },
+    {
+      "id": "multi-team-revisit",
+      "dimension": "completeness",
+      "baseline_score": 0.6,
+      "current_score": 0,
+      "delta": 0.6
+    },
+    {
+      "id": "chunking-strategy",
+      "dimension": "accuracy",
+      "baseline_score": 1,
+      "current_score": 0,
+      "delta": 1
+    },
+    {
+      "id": "chunking-strategy",
+      "dimension": "completeness",
+      "baseline_score": 1,
+      "current_score": 0,
+      "delta": 1
+    },
+    {
+      "id": "no-relevant-adrs",
+      "dimension": "accuracy",
+      "baseline_score": 0.4,
+      "current_score": 0,
+      "delta": 0.4
+    }
+  ],
+  "new_cases": null
+}

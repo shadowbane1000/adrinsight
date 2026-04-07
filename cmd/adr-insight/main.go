@@ -48,6 +48,7 @@ func cmdReindex(args []string) {
 	adrDir := fs.String("adr-dir", "./docs/adr", "Directory containing ADR files")
 	dbPath := fs.String("db", "./adr-insight.db", "Path to SQLite database")
 	ollamaURL := fs.String("ollama-url", "http://localhost:11434", "Ollama API base URL")
+	chunkStrategy := fs.String("chunk-strategy", "sections", "Chunking strategy: sections, wholedoc, preamble")
 	_ = fs.Parse(args)
 
 	ctx := context.Background()
@@ -66,6 +67,16 @@ func cmdReindex(args []string) {
 	defer func() { _ = st.Close() }()
 
 	r := &reindex.Reindexer{Parser: p, Embedder: emb, Store: st}
+	switch *chunkStrategy {
+	case "sections":
+		// default — uses Parser.ChunkADR
+	case "wholedoc":
+		r.ChunkFn = p.ChunkADRWithWholeDoc
+	case "preamble":
+		r.ChunkFn = p.ChunkADRWithPreamble
+	default:
+		log.Fatalf("Unknown chunk strategy: %s (use sections, wholedoc, or preamble)", *chunkStrategy)
+	}
 	result, err := r.Run(ctx, *adrDir)
 	if err != nil {
 		log.Fatalf("Reindex failed: %v", err)

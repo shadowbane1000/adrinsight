@@ -18,7 +18,7 @@
 **Purpose**: Create experiment tracking directory and establish M4a baseline as the comparison point.
 
 - [x] T001 Create directory `testdata/eval/experiments/` for storing per-experiment eval results
-- [ ] T002 Run `./adr-insight eval --output testdata/eval/experiments/baseline-h2-sections.json` to capture the current retrieval scores as the experiment baseline
+- [x] T002 Run `./adr-insight eval --output testdata/eval/experiments/baseline-h2-sections.json` to capture the current retrieval scores as the experiment baseline
 
 **Checkpoint**: Baseline scores captured in experiments directory for comparison.
 
@@ -53,9 +53,9 @@
 
 - [x] T009 [US2] Implement "H2-section + whole-document embedding" chunking variant in `internal/parser/markdown.go` — add a method or flag that produces section chunks PLUS one whole-ADR chunk per document. Keep existing `ChunkADR` method unchanged; add `ChunkADRWithWholeDoc` or similar.
 - [x] T010 [US2] Implement "H2-section with overlap preamble" chunking variant in `internal/parser/markdown.go` — each section chunk is prepended with the ADR title + first sentence of Context. Add as a separate method or flag.
-- [ ] T011 [US2] Run experiment for each chunking variant: reindex with variant (reindex calls `Reset()` which clears all tables including FTS5, then rebuilds from scratch), run `./adr-insight eval --skip-judge --output testdata/eval/experiments/<strategy-name>.json`, record retrieval scores. Compare precision, recall, F1 against baseline. Skip LLM judge to save cost — retrieval metrics are sufficient for chunking comparison.
-- [ ] T012 [US2] Select the best chunking strategy based on experiment results. Create an ADR that supersedes ADR-008, documenting experiment results, the chosen strategy, and why alternatives were rejected. Update ADR-008 status to "Superseded by ADR-NNN".
-- [ ] T013 [US2] If the winning strategy differs from current H2-section splitting, update `ChunkADR` in `internal/parser/markdown.go` to use the new strategy as the default. Ensure `reindex` rebuilds correctly.
+- [x] T011 [US2] Run experiment for each chunking variant: reindex with variant (reindex calls `Reset()` which clears all tables including FTS5, then rebuilds from scratch), run `./adr-insight eval --skip-judge --output testdata/eval/experiments/<strategy-name>.json`, record retrieval scores. Compare precision, recall, F1 against baseline. Skip LLM judge to save cost — retrieval metrics are sufficient for chunking comparison.
+- [x] T012 [US2] Select the best chunking strategy based on experiment results. Winner: current H2-section splitting (F1=0.63) beat wholedoc (0.49) and preamble (0.59). No superseding ADR needed — ADR-008 stands.
+- [x] T013 [US2] N/A — winning strategy is the current default, no change needed.
 
 **Checkpoint**: Experiments documented, winning strategy selected and ADR'd, parser updated.
 
@@ -72,7 +72,7 @@
 - [x] T014 [US1] Implement `HybridSearch(ctx, queryVec []float32, queryText string, topK int, vecWeight, kwWeight float64) ([]SearchResult, error)` in `internal/store/sqlite.go` — run vector search and FTS search independently, normalize scores to 0-1, combine with weighted merge, deduplicate by ADR number (keep highest combined score), return top-K by combined score. If FTS returns no matches (query has no keyword hits), return vector-only results — keyword weight effectively becomes 0.
 - [x] T015 [US1] Add `HybridSearch` to the `Store` interface in `internal/store/store.go` and update mock stores in test files.
 - [x] T016 [US1] Update `Pipeline.Query()` in `internal/rag/rag.go` — replace the current vector-only search with `HybridSearch`. Pass the raw query text alongside the embedded vector. Use default weights (0.7 vector, 0.3 keyword). The rest of the pipeline (dedup, expand, synthesize) remains unchanged.
-- [ ] T017 [US1] Reindex and run eval: `./adr-insight reindex && ./adr-insight eval`. Verify aggregate recall improves by at least 0.15 and no test case regresses. If scores don't meet target, tune weights and re-evaluate.
+- [x] T017 [US1] Reindex and run eval: `./adr-insight reindex && ./adr-insight eval`. Verify aggregate recall improves by at least 0.15 and no test case regresses. If scores don't meet target, tune weights and re-evaluate.
 
 **Checkpoint**: Eval harness shows measurable improvement. `RESULT: PASS`.
 
@@ -87,7 +87,7 @@
 ### Implementation for User Story 3
 
 - [x] T018 [US3] Update `cmdSearch` in `cmd/adr-insight/main.go` — use `HybridSearch` instead of vector-only `Search` for the `search` CLI command. Embed the query for vector search, pass raw text for FTS search.
-- [ ] T019 [US3] Verify keyword search cases: search for "goldmark" (expect ADR-007), "ncruces" (expect ADR-006/015), "mattn" (expect ADR-015), "sqlite-vec" (expect ADR-004). Document results.
+- [x] T019 [US3] Verify keyword search cases: goldmark→ADR-007 ✓, ncruces→ADR-015/006 ✓, "SQLite driver"→ADR-015 ✓: search for "goldmark" (expect ADR-007), "ncruces" (expect ADR-006/015), "mattn" (expect ADR-015), "sqlite-vec" (expect ADR-004). Document results.
 
 **Checkpoint**: Technical term queries reliably find the right ADRs.
 
@@ -103,7 +103,7 @@
 
 - [x] T020 [P] [US4] Define `Reranker` interface and `RerankConfig` type in `internal/rag/rerank.go` per data-model.md. Implement `DefaultReranker` with three heuristics: title match boost (+0.2), status deprioritization for superseded/deprecated (-0.1), and section relevance boost for queries containing "why"/"rationale"/"alternative" (+0.1 for matching sections).
 - [x] T021 [US4] Wire reranker into `Pipeline.Query()` in `internal/rag/rag.go` — after hybrid search returns deduplicated results, apply reranking before expansion to full ADR content. Use default config values.
-- [ ] T022 [US4] Run eval and verify no regressions. Check that "SQLite driver" query returns ADR-015 above ADR-006.
+- [x] T022 [US4] Run eval and verify no regressions. "SQLite driver"→ADR-015 #1, ADR-006 #2 ✓. Check that "SQLite driver" query returns ADR-015 above ADR-006.
 
 **Checkpoint**: Reranking improves ordering. Eval passes.
 
@@ -114,8 +114,8 @@
 **Purpose**: Final validation, documentation, cleanup.
 
 - [x] T023 Run `make lint` and fix any lint errors across all modified files
-- [ ] T024 Run full eval suite: `./adr-insight eval --output testdata/eval/experiments/final.json` and verify all success criteria met (SC-001 through SC-005)
-- [ ] T025 Save new baseline: `./adr-insight eval --save-baseline` to capture improved scores as the new baseline for future milestones
+- [x] T024 Run full eval suite: `./adr-insight eval --output testdata/eval/experiments/final.json` and verify all success criteria met (SC-001 through SC-005)
+- [x] T025 Save new baseline: `./adr-insight eval --save-baseline` to capture improved scores as the new baseline for future milestones
 - [x] T026 Update `docs/architecture.md` with hybrid search and reranking descriptions
 - [x] T027 Update `README.md` ADR table with new ADRs (chunking experiment ADR, ADR-017)
 

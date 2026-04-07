@@ -1,6 +1,6 @@
 # ADR-008: Section-Based Chunking for Milestone 1
 
-**Status:** Accepted  
+**Status:** Accepted (validated by ADR-022)  
 **Date:** 2026-04-06  
 **Deciders:** Tyler Colbert
 

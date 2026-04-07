@@ -130,6 +130,7 @@ This project's own [Architecture Decision Records](docs/adr/) serve as both docu
 | [ADR-019](docs/adr/ADR-019-deterministic-retrieval-metrics.md) | Deterministic Retrieval Metrics |
 | [ADR-020](docs/adr/ADR-020-adr-relationship-model.md) | ADR Relationship Model |
 | [ADR-021](docs/adr/ADR-021-llm-relationship-classification.md) | LLM Relationship Classification |
+| [ADR-022](docs/adr/ADR-022-chunking-strategy-validated.md) | Chunking Strategy Validated in Phase 2 |
 
 ## Author
 

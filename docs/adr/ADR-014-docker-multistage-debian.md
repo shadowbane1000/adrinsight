@@ -92,11 +92,11 @@ build-time and runtime C libraries.
 - **Not chosen because:** The mattn/go-sqlite3 driver requires CGO — it
   wraps the C sqlite3 library. Disabling CGO is not an option without
   switching to a pure-Go SQLite driver, which was evaluated and rejected
-  in ADR-006 due to sqlite-vec compatibility issues.
+  in ADR-015 due to sqlite-vec compatibility issues.
 
 ## Related ADRs
 
-- ADR-006: mattn/go-sqlite3 CGO Driver — the CGO requirement that drives
+- ADR-015: Switch to mattn/go-sqlite3 (CGO) — the CGO requirement that drives
   this Docker build strategy
 - ADR-004: SQLite Vector Storage — the storage layer that requires sqlite3
   in the runtime image

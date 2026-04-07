@@ -1,6 +1,6 @@
-# ADR-006: mattn/go-sqlite3 (CGO) as SQLite Driver
+# ADR-006: ncruces/go-sqlite3 (WASM) as SQLite Driver
 
-**Status:** Accepted (amended)  
+**Status:** Superseded by ADR-015  
 **Date:** 2026-04-06  
 **Deciders:** Tyler Colbert
 
@@ -8,46 +8,48 @@
 
 ADR-004 established SQLite with sqlite-vec as the storage layer. The next decision is which Go SQLite driver to use. The key constraint is that sqlite-vec is a native C extension — it must be loaded into the SQLite runtime.
 
-The original plan was to use ncruces/go-sqlite3 (WASM-based, no CGO) with the official sqlite-vec WASM bindings. During implementation, this approach failed due to version incompatibilities between the sqlite-vec WASM binary and the ncruces driver — the WASM binary used atomic operations that the wazero runtime didn't support at compatible version ranges, causing crashes during KNN queries.
+There are three main Go SQLite drivers:
+
+- **ncruces/go-sqlite3** — WASM-based, no CGO required. Uses wazero as a WASM runtime. sqlite-vec provides WASM bindings.
+- **mattn/go-sqlite3** — CGO-based, wraps the C SQLite library directly. Requires a C compiler and `libsqlite3-dev`. sqlite-vec provides CGO bindings.
+- **modernc.org/sqlite** — Pure Go transpilation of the C source. Cannot load native C extensions like sqlite-vec.
 
 ## Decision
 
-Use mattn/go-sqlite3 (CGO-based) with the sqlite-vec CGO bindings at `github.com/asg017/sqlite-vec-go-bindings/cgo`. This requires `libsqlite3-dev` on the build system and `CGO_ENABLED=1`.
+Use ncruces/go-sqlite3 (WASM-based, no CGO) with the sqlite-vec WASM bindings. This avoids requiring a C toolchain on the build system and simplifies cross-compilation.
 
 ## Rationale
 
-- **Proven stability:** mattn/go-sqlite3 is the most mature and widely-used Go SQLite driver (7k+ stars). The CGO sqlite-vec bindings are the primary, best-tested integration path.
-- **sqlite-vec works reliably:** The CGO bindings auto-register the extension via `sqlite_vec.Auto()` — no manual loading needed. KNN queries, vector serialization, and all operations work correctly.
-- **Pragmatic tradeoff:** The WASM approach (ncruces) would have been ideal for build simplicity, but version incompatibilities between the shipped WASM binary and the driver made it unreliable. The Store interface (Constitution Principle I) means we can revisit this when the WASM bindings stabilize.
+- **No CGO:** Simplifies the build pipeline — no C compiler needed, no `libsqlite3-dev`, trivial cross-compilation. Constitution Principle V (Developer Experience).
+- **sqlite-vec WASM bindings exist:** The sqlite-vec project publishes WASM bindings specifically for the ncruces driver.
+- **wazero runtime:** Pure Go WASM runtime with no system dependencies.
+- **Skateboard first:** Constitution Principle III — if the WASM approach works, it's simpler than CGO.
 
 ## Consequences
 
 ### Positive
-- Reliable, well-tested SQLite operations
-- Official sqlite-vec integration path that works out of the box
-- Best performance (native C, no WASM overhead)
+- No CGO, no C toolchain requirement
+- Simple cross-compilation
+- Cleaner Docker builds (no gcc needed)
 
 ### Negative
-- Requires CGO (`CGO_ENABLED=1`) — complicates cross-compilation
-- Requires `libsqlite3-dev` on the build system and in CI
-- Docker builder stage needs a C toolchain
+- WASM overhead compared to native C
+- sqlite-vec WASM bindings are newer and less tested than the CGO bindings
+- wazero compatibility with sqlite-vec's WASM binary is not guaranteed across versions
 
 ### Mitigations
-- CI workflows install `libsqlite3-dev` as a build dependency
-- Docker multi-stage build can use a builder image with the C toolchain
-- The Store interface allows swapping back to ncruces/WASM when those bindings stabilize
+- The Store interface (Constitution Principle I) allows swapping drivers if WASM proves unreliable
+- Performance overhead is negligible at this corpus scale
 
 ## Alternatives Considered
 
-### ncruces/go-sqlite3 (WASM, no CGO)
-- **Originally chosen, then rejected:** The sqlite-vec WASM bindings shipped with atomic operations incompatible with the ncruces driver at available version ranges. KNN queries crashed with "out of bounds memory access" errors. Multiple version combinations (v0.17.1 through v0.22.0) were tested without success.
+### mattn/go-sqlite3 (CGO)
+- **Not chosen initially:** Requires CGO, a C compiler, and `libsqlite3-dev`. Adds build complexity. Kept as a fallback if WASM proves unreliable.
 
 ### modernc.org/sqlite (pure Go)
 - **Rejected because:** Cannot load native C extensions like sqlite-vec. The sqlite-vec extension is central to the architecture (ADR-004).
 
-### viant/sqlite-vec (pure Go reimplementation)
-- **Not chosen:** A pure-Go reimplementation of vector search concepts using its own virtual table scheme (not `vec0`). Newer and less battle-tested than the official CGO bindings.
-
 ## Related ADRs
 
 - ADR-004: SQLite with Vector Extension for Storage — establishes sqlite-vec as the storage layer
+- ADR-015: Switch to mattn/go-sqlite3 (CGO) — supersedes this ADR after WASM incompatibilities

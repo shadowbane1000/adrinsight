@@ -240,6 +240,16 @@ With multiple developers:
 
 ---
 
+## ADR Handling During Implementation
+
+- **NEVER edit the body** of an existing ADR (Context, Decision, Rationale,
+  Consequences, Alternatives Considered sections) during task implementation
+- If a task requires changing a previously recorded decision, **create a new
+  superseding ADR** instead (use the ADR template with the `Supersedes` field)
+- When a new ADR supersedes an old one, you MAY update the old ADR's
+  **Status** (e.g., `Superseded by ADR-NNN`) and **Related ADRs** fields only
+- This preserves decision history — see Constitution Principle II-A
+
 ## Notes
 
 - [P] tasks = different files, no dependencies

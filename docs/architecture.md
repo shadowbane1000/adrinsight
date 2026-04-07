@@ -56,6 +56,7 @@ adr-insight/
 │   ├── store/                   # SQLite + sqlite-vec storage
 │   ├── rag/                     # retrieval + synthesis orchestration
 │   ├── llm/                     # LLM interface + Anthropic impl
+│   ├── eval/                    # evaluation harness (scoring, judge, reporting)
 │   └── server/                  # HTTP API + serves web UI
 ├── web/
 │   ├── embed.go                 # go:embed directive for static files
@@ -64,7 +65,9 @@ adr-insight/
 │   ├── adr/                     # project's own ADRs (also demo dataset)
 │   ├── architecture.md          # this file
 │   └── roadmap.md               # phased roadmap
-├── testdata/                    # sample ADRs for testing
+├── testdata/
+│   ├── eval/                    # evaluation test cases and baseline
+│   └── *.md                     # sample ADRs for testing
 ├── .gitea/workflows/ci.yaml     # primary CI (lint + test + build)
 ├── .github/workflows/ci.yaml    # GitHub mirror CI
 ├── .specify/                    # spec-kit scaffolding
@@ -111,3 +114,7 @@ swappable without changing callers (see ADR-001, Constitution Principle I).
   is empty and runs reindex automatically, with retry backoff for Ollama.
 - **Docker multi-stage build** — `golang:bookworm` (build) to
   `debian:bookworm-slim` (runtime) for CGO/libc ABI compatibility. See ADR-014.
+- **Evaluation harness** — `./adr-insight eval` runs test questions against
+  the live system, scores answers with mechanical metrics (precision/recall/F1)
+  and LLM-as-judge (accuracy/completeness), and detects regressions against
+  a saved baseline. See ADR-016.

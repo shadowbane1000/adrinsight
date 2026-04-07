@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/tylerc-atx/adr-insight/internal/embedder"
+	"github.com/tylerc-atx/adr-insight/internal/eval"
 	"github.com/tylerc-atx/adr-insight/internal/llm"
 	"github.com/tylerc-atx/adr-insight/internal/parser"
 	"github.com/tylerc-atx/adr-insight/internal/rag"
@@ -22,7 +24,7 @@ const queryPrefix = "search_query: "
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "Usage: adr-insight <command> [flags]\n\nCommands:\n  reindex  Parse, embed, and store ADRs\n  search   Search indexed ADRs by similarity\n  serve    Start the HTTP API server\n")
+		fmt.Fprintf(os.Stderr, "Usage: adr-insight <command> [flags]\n\nCommands:\n  reindex  Parse, embed, and store ADRs\n  search   Search indexed ADRs by similarity\n  serve    Start the HTTP API server\n  eval     Evaluate answer quality against test cases\n")
 		os.Exit(1)
 	}
 
@@ -33,6 +35,8 @@ func main() {
 		cmdSearch(os.Args[2:])
 	case "serve":
 		cmdServe(os.Args[2:])
+	case "eval":
+		cmdEval(os.Args[2:])
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", os.Args[1])
 		os.Exit(1)
@@ -176,6 +180,109 @@ func cmdServe(args []string) {
 
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("Server error: %v", err)
+	}
+}
+
+func cmdEval(args []string) {
+	fs := flag.NewFlagSet("eval", flag.ExitOnError)
+	casesPath := fs.String("cases", "./testdata/eval/cases.json", "Path to test case corpus")
+	baselinePath := fs.String("baseline", "./testdata/eval/baseline.json", "Path to baseline file")
+	saveBaseline := fs.Bool("save-baseline", false, "Save this run's results as the new baseline")
+	outputPath := fs.String("output", "", "Write full results JSON to this file")
+	delta := fs.Float64("delta", 0.2, "Maximum allowed per-question score drop (0.0-1.0)")
+	dbPath := fs.String("db", "./adr-insight.db", "Path to SQLite database")
+	ollamaURL := fs.String("ollama-url", "http://localhost:11434", "Ollama API base URL")
+	adrDir := fs.String("adr-dir", "./docs/adr", "ADR directory for full content reads")
+	model := fs.String("model", "claude-sonnet-4-5", "Anthropic model for judge")
+	_ = fs.Parse(args)
+
+	apiKey := os.Getenv("ANTHROPIC_API_KEY")
+	if apiKey == "" {
+		log.Println("Evaluation skipped: ANTHROPIC_API_KEY not set")
+		os.Exit(0)
+	}
+
+	// Load test cases.
+	cases, err := eval.LoadTestCases(*casesPath)
+	if err != nil {
+		log.Fatalf("Failed to load test cases: %v", err)
+	}
+
+	// Create embedder — test connectivity.
+	emb, err := embedder.NewOllamaEmbedder(*ollamaURL, "nomic-embed-text")
+	if err != nil {
+		log.Printf("Evaluation skipped: embedding service unavailable: %v", err)
+		os.Exit(0)
+	}
+
+	// Test Ollama connectivity with a trivial embed.
+	ctx := context.Background()
+	_, err = emb.Embed(ctx, []string{"connectivity test"})
+	if err != nil {
+		log.Printf("Evaluation skipped: embedding service unavailable: %v", err)
+		os.Exit(0)
+	}
+
+	st, err := store.NewSQLiteStore(*dbPath)
+	if err != nil {
+		log.Fatalf("Failed to open database: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	l := llm.NewAnthropicLLM(apiKey, *model)
+	pipeline := &rag.Pipeline{
+		Embedder: emb,
+		Store:    st,
+		LLM:     l,
+		ADRDir:   *adrDir,
+		TopK:    5,
+	}
+
+	judge := eval.NewAnthropicJudge(apiKey, *model)
+
+	// Run evaluation.
+	report, err := eval.RunEval(ctx, cases, pipeline, judge, *adrDir)
+	if err != nil {
+		log.Fatalf("Evaluation failed: %v", err)
+	}
+
+	// Load baseline for comparison.
+	baseline, err := eval.LoadBaseline(*baselinePath)
+	if err != nil {
+		log.Fatalf("Failed to load baseline: %v", err)
+	}
+
+	// Detect regressions.
+	if baseline != nil {
+		eval.DetectRegressions(report, baseline, *delta)
+	}
+
+	// Print report.
+	eval.PrintReport(os.Stdout, report, cases, baseline)
+
+	// Write full results JSON if requested.
+	if *outputPath != "" {
+		data, err := json.MarshalIndent(report, "", "  ")
+		if err != nil {
+			log.Fatalf("Failed to marshal results: %v", err)
+		}
+		if err := os.WriteFile(*outputPath, data, 0644); err != nil {
+			log.Fatalf("Failed to write results: %v", err)
+		}
+		fmt.Printf("\nFull results written to %s\n", *outputPath)
+	}
+
+	// Save baseline if requested.
+	if *saveBaseline {
+		if err := eval.SaveBaseline(*baselinePath, report, *delta); err != nil {
+			log.Fatalf("Failed to save baseline: %v", err)
+		}
+		fmt.Printf("\nBaseline saved to %s\n", *baselinePath)
+	}
+
+	// Exit code based on regressions.
+	if len(report.Regressions) > 0 {
+		os.Exit(1)
 	}
 }
 

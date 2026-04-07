@@ -33,14 +33,15 @@ User Question
 The SQLite database is a derived artifact. It can be deleted and fully
 regenerated from the source ADR files at any time.
 
-### Query Time
+### Query Time (HTTP API)
 
-1. User types a question in the web UI
-2. Question is embedded via Ollama
+1. User sends a question via `POST /query`
+2. Question is embedded via Ollama with `search_query:` prefix
 3. Similarity search in SQLite returns top-K relevant ADR chunks
-4. Retrieved chunks + question sent to Anthropic Claude for synthesis
-5. Claude returns a natural-language answer with citations to specific ADRs
-6. Web UI displays answer with clickable citation links
+4. Results deduplicated by ADR number; full ADR files read from disk
+5. Full ADR content + question sent to Anthropic Claude for synthesis
+6. Claude returns structured JSON (answer + citations array) via OutputConfig
+7. HTTP API returns the structured response to the client
 
 ## Project Structure
 
@@ -83,7 +84,7 @@ swappable without changing callers (see ADR-001, Constitution Principle I).
 | Parser    | Parse ADR markdown files | goldmark + goldmark-meta |
 | Embedder  | Convert text to vector embeddings | Ollama (`nomic-embed-text`) |
 | Store     | Persist and search vectors + metadata | SQLite + `sqlite-vec` (mattn/go-sqlite3 + CGO) |
-| LLM       | Synthesize answers from context | Anthropic Claude API (Milestone 2) |
+| LLM       | Synthesize answers from context | Anthropic Claude API (official Go SDK) |
 
 ## Technical Notes
 
@@ -95,3 +96,9 @@ swappable without changing callers (see ADR-001, Constitution Principle I).
   downloads `nomic-embed-text` (~275MB).
 - **CI runs on both Gitea Actions (primary) and GitHub Actions (mirror).**
   See ADR-005.
+- **HTTP API uses Go 1.22+ stdlib ServeMux** — no framework needed for
+  3 endpoints. See ADR-011.
+- **Structured LLM output** via Anthropic OutputConfig with JSON schema —
+  guarantees valid response format. See ADR-009.
+- **Full ADR expansion** — search retrieves chunks but synthesis gets full
+  ADR files from disk. See ADR-010.

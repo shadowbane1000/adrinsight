@@ -120,6 +120,39 @@ func TestSearch(t *testing.T) {
 	}
 }
 
+func TestListADRs(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	if err := s.Reset(ctx); err != nil {
+		t.Fatalf("Reset: %v", err)
+	}
+
+	emb := make([]float32, 768)
+	chunks := []ChunkRecord{
+		{ADRNumber: 1, ADRTitle: "Why Go", ADRStatus: "Accepted", ADRPath: "/adr/ADR-001.md", Section: "Context", Content: "content", Embedding: emb},
+		{ADRNumber: 1, ADRTitle: "Why Go", ADRStatus: "Accepted", ADRPath: "/adr/ADR-001.md", Section: "Decision", Content: "content", Embedding: emb},
+		{ADRNumber: 2, ADRTitle: "SQLite", ADRStatus: "Accepted", ADRPath: "/adr/ADR-002.md", Section: "Context", Content: "content", Embedding: emb},
+	}
+	if err := s.StoreChunks(ctx, chunks); err != nil {
+		t.Fatalf("StoreChunks: %v", err)
+	}
+
+	adrs, err := s.ListADRs(ctx)
+	if err != nil {
+		t.Fatalf("ListADRs: %v", err)
+	}
+	if len(adrs) != 2 {
+		t.Fatalf("expected 2 unique ADRs, got %d", len(adrs))
+	}
+	if adrs[0].Number != 1 || adrs[1].Number != 2 {
+		t.Errorf("expected ADR 1 and 2, got %d and %d", adrs[0].Number, adrs[1].Number)
+	}
+	if adrs[0].Title != "Why Go" {
+		t.Errorf("expected title 'Why Go', got %q", adrs[0].Title)
+	}
+}
+
 func TestClose(t *testing.T) {
 	s := newTestStore(t)
 	if err := s.Close(); err != nil {

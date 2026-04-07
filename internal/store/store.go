@@ -23,10 +23,19 @@ type SearchResult struct {
 	Score     float64
 }
 
+// ADRSummary is a lightweight representation of an indexed ADR.
+type ADRSummary struct {
+	Number int
+	Title  string
+	Status string
+	Path   string
+}
+
 // Store persists ADR chunks with embeddings and supports similarity search.
 type Store interface {
 	Reset(ctx context.Context) error
 	StoreChunks(ctx context.Context, chunks []ChunkRecord) error
 	Search(ctx context.Context, query []float32, topK int) ([]SearchResult, error)
+	ListADRs(ctx context.Context) ([]ADRSummary, error)
 	Close() error
 }

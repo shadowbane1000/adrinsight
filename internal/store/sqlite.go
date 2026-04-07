@@ -146,6 +146,27 @@ func (s *SQLiteStore) Search(ctx context.Context, query []float32, topK int) ([]
 	return results, nil
 }
 
+// ListADRs returns distinct ADR metadata from the chunks table.
+func (s *SQLiteStore) ListADRs(ctx context.Context) ([]ADRSummary, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT DISTINCT adr_number, adr_title, adr_status, adr_path
+		 FROM chunks ORDER BY adr_number`)
+	if err != nil {
+		return nil, fmt.Errorf("list ADRs: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var adrs []ADRSummary
+	for rows.Next() {
+		var a ADRSummary
+		if err := rows.Scan(&a.Number, &a.Title, &a.Status, &a.Path); err != nil {
+			return nil, fmt.Errorf("scan ADR: %w", err)
+		}
+		adrs = append(adrs, a)
+	}
+	return adrs, rows.Err()
+}
+
 // Close closes the database connection.
 func (s *SQLiteStore) Close() error {
 	return s.db.Close()

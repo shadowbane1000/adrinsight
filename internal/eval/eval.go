@@ -127,16 +127,22 @@ func RunEval(ctx context.Context, cases []TestCase, pipeline *rag.Pipeline, judg
 		// Compute mechanical retrieval scores.
 		precision, recall, f1 := ComputeRetrieval(returnedADRs, tc.ExpectedADRs)
 
-		// Read expected ADR content for the judge.
-		adrContent := loadExpectedADRContent(tc.ExpectedADRs, adrDir)
-
-		// Score with LLM judge.
-		jr, err := judge.Score(qCtx, tc.Question, adrContent, resp.Answer)
-		if err != nil {
-			log.Printf("Warning: judge scoring failed for %q: %v (using 0 scores)", tc.ID, err)
+		// Score with LLM judge (skip if judge is nil).
+		var jr JudgeResult
+		if judge != nil {
+			adrContent := loadExpectedADRContent(tc.ExpectedADRs, adrDir)
+			jr, err = judge.Score(qCtx, tc.Question, adrContent, resp.Answer)
+			if err != nil {
+				log.Printf("Warning: judge scoring failed for %q: %v (using 0 scores)", tc.ID, err)
+				jr = JudgeResult{
+					AccuracyReason:     "Judge scoring failed",
+					CompletenessReason: "Judge scoring failed",
+				}
+			}
+		} else {
 			jr = JudgeResult{
-				AccuracyReason:     "Judge scoring failed",
-				CompletenessReason: "Judge scoring failed",
+				AccuracyReason:     "skipped",
+				CompletenessReason: "skipped",
 			}
 		}
 

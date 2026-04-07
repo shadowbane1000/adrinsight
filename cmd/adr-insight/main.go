@@ -109,7 +109,7 @@ func cmdSearch(args []string) {
 		log.Fatal("No embedding returned for query")
 	}
 
-	results, err := st.Search(ctx, vecs[0], *topK)
+	results, err := st.HybridSearch(ctx, vecs[0], query, *topK, 0.7, 0.3)
 	if err != nil {
 		log.Fatalf("Search failed: %v", err)
 	}
@@ -166,7 +166,8 @@ func cmdServe(args []string) {
 			Store:    st,
 			LLM:     l,
 			ADRDir:   *adrDir,
-			TopK:    5,
+			TopK:     5,
+			Reranker: &rag.DefaultReranker{},
 		}
 	}
 
@@ -189,6 +190,7 @@ func cmdEval(args []string) {
 	baselinePath := fs.String("baseline", "./testdata/eval/baseline.json", "Path to baseline file")
 	saveBaseline := fs.Bool("save-baseline", false, "Save this run's results as the new baseline")
 	outputPath := fs.String("output", "", "Write full results JSON to this file")
+	skipJudge := fs.Bool("skip-judge", false, "Skip LLM judge scoring (retrieval metrics only)")
 	delta := fs.Float64("delta", 0.2, "Maximum allowed per-question score drop (0.0-1.0)")
 	dbPath := fs.String("db", "./adr-insight.db", "Path to SQLite database")
 	ollamaURL := fs.String("ollama-url", "http://localhost:11434", "Ollama API base URL")
@@ -235,10 +237,18 @@ func cmdEval(args []string) {
 		Store:    st,
 		LLM:     l,
 		ADRDir:   *adrDir,
-		TopK:    5,
+		TopK:     5,
+		Reranker: &rag.DefaultReranker{},
 	}
 
-	judge := eval.NewAnthropicJudge(apiKey, *model)
+	// Create judge (nil if --skip-judge).
+	var judge eval.Judge
+	if !*skipJudge && apiKey != "" {
+		judge = eval.NewAnthropicJudge(apiKey, *model)
+	}
+	if *skipJudge {
+		log.Println("LLM judge scoring skipped (--skip-judge)")
+	}
 
 	// Run evaluation.
 	report, err := eval.RunEval(ctx, cases, pipeline, judge, *adrDir)

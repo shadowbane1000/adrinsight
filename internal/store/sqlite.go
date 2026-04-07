@@ -32,6 +32,7 @@ func (s *SQLiteStore) Reset(ctx context.Context) error {
 	stmts := []string{
 		"DROP TABLE IF EXISTS chunks",
 		"DROP TABLE IF EXISTS vec_chunks",
+		"DROP TABLE IF EXISTS fts_chunks",
 		`CREATE TABLE chunks (
 			id         INTEGER PRIMARY KEY AUTOINCREMENT,
 			adr_number INTEGER NOT NULL,
@@ -42,6 +43,7 @@ func (s *SQLiteStore) Reset(ctx context.Context) error {
 			content    TEXT    NOT NULL
 		)`,
 		"CREATE VIRTUAL TABLE vec_chunks USING vec0(embedding float[768])",
+		"CREATE VIRTUAL TABLE fts_chunks USING fts5(content)",
 	}
 	for _, stmt := range stmts {
 		if _, err := s.db.ExecContext(ctx, stmt); err != nil {
@@ -74,6 +76,13 @@ func (s *SQLiteStore) StoreChunks(ctx context.Context, chunks []ChunkRecord) err
 	}
 	defer func() { _ = vecStmt.Close() }()
 
+	ftsStmt, err := tx.PrepareContext(ctx,
+		"INSERT INTO fts_chunks (rowid, content) VALUES (?, ?)")
+	if err != nil {
+		return fmt.Errorf("prepare fts insert: %w", err)
+	}
+	defer func() { _ = ftsStmt.Close() }()
+
 	for _, c := range chunks {
 		res, err := metaStmt.ExecContext(ctx,
 			c.ADRNumber, c.ADRTitle, c.ADRStatus, c.ADRPath, c.Section, c.Content)
@@ -91,6 +100,9 @@ func (s *SQLiteStore) StoreChunks(ctx context.Context, chunks []ChunkRecord) err
 		}
 		if _, err := vecStmt.ExecContext(ctx, rowID, blob); err != nil {
 			return fmt.Errorf("insert vec: %w", err)
+		}
+		if _, err := ftsStmt.ExecContext(ctx, rowID, c.Content); err != nil {
+			return fmt.Errorf("insert fts: %w", err)
 		}
 	}
 	return tx.Commit()
@@ -177,6 +189,163 @@ func (s *SQLiteStore) IsEmpty(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 	return count == 0, nil
+}
+
+// SearchFTS performs full-text keyword search using FTS5 BM25 ranking.
+func (s *SQLiteStore) SearchFTS(ctx context.Context, query string, topK int) ([]SearchResult, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT fts.rowid, fts.rank
+		 FROM fts_chunks fts
+		 WHERE fts_chunks MATCH ?
+		 ORDER BY rank
+		 LIMIT ?`, query, topK)
+	if err != nil {
+		return nil, fmt.Errorf("fts search: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	type ftsHit struct {
+		rowID int64
+		rank  float64
+	}
+	var hits []ftsHit
+	for rows.Next() {
+		var h ftsHit
+		if err := rows.Scan(&h.rowID, &h.rank); err != nil {
+			return nil, fmt.Errorf("scan fts result: %w", err)
+		}
+		hits = append(hits, h)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("fts rows: %w", err)
+	}
+
+	if len(hits) == 0 {
+		return nil, nil
+	}
+
+	// Normalize BM25 scores to 0-1 (rank is negative; closer to 0 = better).
+	maxAbs := 0.0
+	for _, h := range hits {
+		a := -h.rank
+		if a > maxAbs {
+			maxAbs = a
+		}
+	}
+
+	var results []SearchResult
+	for _, h := range hits {
+		var r SearchResult
+		err := s.db.QueryRowContext(ctx,
+			`SELECT adr_number, adr_title, adr_path, section, content
+			 FROM chunks WHERE id = ?`, h.rowID).Scan(
+			&r.ADRNumber, &r.ADRTitle, &r.ADRPath, &r.Section, &r.Content)
+		if err != nil {
+			return nil, fmt.Errorf("lookup chunk %d: %w", h.rowID, err)
+		}
+		if maxAbs > 0 {
+			r.Score = 1.0 - (-h.rank / maxAbs)
+		} else {
+			r.Score = 1.0
+		}
+		results = append(results, r)
+	}
+	return results, nil
+}
+
+// HybridSearch combines vector and FTS5 keyword search with weighted merge.
+func (s *SQLiteStore) HybridSearch(ctx context.Context, queryVec []float32, queryText string, topK int, vecWeight, kwWeight float64) ([]SearchResult, error) {
+	// Run vector search.
+	vecResults, err := s.Search(ctx, queryVec, topK*2)
+	if err != nil {
+		return nil, fmt.Errorf("vector search: %w", err)
+	}
+
+	// Normalize vector distances to 0-1 scores (lower distance = higher score).
+	if len(vecResults) > 0 {
+		maxDist := 0.0
+		for _, r := range vecResults {
+			if r.Score > maxDist {
+				maxDist = r.Score
+			}
+		}
+		if maxDist > 0 {
+			for i := range vecResults {
+				vecResults[i].Score = 1.0 - (vecResults[i].Score / maxDist)
+			}
+		}
+	}
+
+	// Run FTS search.
+	ftsResults, err := s.SearchFTS(ctx, queryText, topK*2)
+	if err != nil {
+		// FTS failure is non-fatal — fall back to vector only.
+		ftsResults = nil
+	}
+
+	// If no FTS results, return vector-only (keyword weight becomes 0).
+	if len(ftsResults) == 0 {
+		// Deduplicate by ADR number.
+		return deduplicateByADR(vecResults, topK), nil
+	}
+
+	// Weighted merge: build a map keyed by chunk rowid (approximated by ADR+section).
+	type mergeKey struct {
+		adrNumber int
+		section   string
+	}
+	merged := make(map[mergeKey]*SearchResult)
+
+	for i := range vecResults {
+		k := mergeKey{vecResults[i].ADRNumber, vecResults[i].Section}
+		r := vecResults[i]
+		r.Score = r.Score * vecWeight
+		merged[k] = &r
+	}
+
+	for i := range ftsResults {
+		k := mergeKey{ftsResults[i].ADRNumber, ftsResults[i].Section}
+		if existing, ok := merged[k]; ok {
+			existing.Score += ftsResults[i].Score * kwWeight
+		} else {
+			r := ftsResults[i]
+			r.Score = r.Score * kwWeight
+			merged[k] = &r
+		}
+	}
+
+	// Collect and sort by combined score descending.
+	var combined []SearchResult
+	for _, r := range merged {
+		combined = append(combined, *r)
+	}
+	sortByScoreDesc(combined)
+
+	return deduplicateByADR(combined, topK), nil
+}
+
+func deduplicateByADR(results []SearchResult, topK int) []SearchResult {
+	seen := make(map[int]bool)
+	var deduped []SearchResult
+	for _, r := range results {
+		if seen[r.ADRNumber] {
+			continue
+		}
+		seen[r.ADRNumber] = true
+		deduped = append(deduped, r)
+		if len(deduped) >= topK {
+			break
+		}
+	}
+	return deduped
+}
+
+func sortByScoreDesc(results []SearchResult) {
+	for i := 1; i < len(results); i++ {
+		for j := i; j > 0 && results[j].Score > results[j-1].Score; j-- {
+			results[j], results[j-1] = results[j-1], results[j]
+		}
+	}
 }
 
 // Close closes the database connection.

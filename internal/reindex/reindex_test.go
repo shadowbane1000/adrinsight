@@ -70,6 +70,14 @@ func (m *mockStore) IsEmpty(_ context.Context) (bool, error) {
 	return true, nil
 }
 
+func (m *mockStore) SearchFTS(_ context.Context, _ string, _ int) ([]store.SearchResult, error) {
+	return nil, nil
+}
+
+func (m *mockStore) HybridSearch(_ context.Context, _ []float32, _ string, _ int, _, _ float64) ([]store.SearchResult, error) {
+	return nil, nil
+}
+
 func TestReindexerRun(t *testing.T) {
 	mp := &mockParser{
 		adrs: []parser.ADR{

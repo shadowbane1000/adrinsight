@@ -36,6 +36,8 @@ type Store interface {
 	Reset(ctx context.Context) error
 	StoreChunks(ctx context.Context, chunks []ChunkRecord) error
 	Search(ctx context.Context, query []float32, topK int) ([]SearchResult, error)
+	SearchFTS(ctx context.Context, query string, topK int) ([]SearchResult, error)
+	HybridSearch(ctx context.Context, queryVec []float32, queryText string, topK int, vecWeight, kwWeight float64) ([]SearchResult, error)
 	ListADRs(ctx context.Context) ([]ADRSummary, error)
 	IsEmpty(ctx context.Context) (bool, error)
 	Close() error

@@ -98,9 +98,9 @@ See [docs/architecture.md](docs/architecture.md) for the full system overview, d
 
 - **Parser** — Extracts metadata and sections from ADR markdown files (goldmark)
 - **Embedder** — Generates vector embeddings via Ollama (nomic-embed-text)
-- **Store** — SQLite with sqlite-vec for vector similarity search
+- **Store** — SQLite with sqlite-vec (vector) + FTS5 (keyword) for hybrid search
 - **LLM** — Anthropic Claude for synthesizing answers from retrieved ADRs
-- **RAG Pipeline** — Orchestrates embed → search → expand → synthesize
+- **RAG Pipeline** — Orchestrates embed → hybrid search → rerank → expand → synthesize
 - **Web UI** — Vanilla HTML/CSS/JS with marked.js for markdown rendering
 
 ## ADRs
@@ -125,6 +125,7 @@ This project's own [Architecture Decision Records](docs/adr/) serve as both docu
 | [ADR-014](docs/adr/ADR-014-docker-multistage-debian.md) | Docker Multi-Stage Debian |
 | [ADR-015](docs/adr/ADR-015-mattn-cgo-sqlite-driver.md) | mattn/CGO SQLite Driver (supersedes ADR-006) |
 | [ADR-016](docs/adr/ADR-016-llm-judge-evaluation.md) | LLM-as-Judge Evaluation |
+| [ADR-017](docs/adr/ADR-017-fts5-hybrid-search.md) | FTS5 Hybrid Search |
 
 ## Author
 

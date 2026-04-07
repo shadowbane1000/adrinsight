@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/tylerc-atx/adr-insight/internal/embedder"
 	"github.com/tylerc-atx/adr-insight/internal/llm"
@@ -132,12 +133,8 @@ func cmdServe(args []string) {
 	ollamaURL := fs.String("ollama-url", "http://localhost:11434", "Ollama API base URL")
 	adrDir := fs.String("adr-dir", "./docs/adr", "ADR directory for full content reads")
 	model := fs.String("model", "claude-sonnet-4-5", "Anthropic model to use")
+	devMode := fs.Bool("dev", false, "Serve static files from disk for live editing")
 	_ = fs.Parse(args)
-
-	apiKey := os.Getenv("ANTHROPIC_API_KEY")
-	if apiKey == "" {
-		log.Fatal("ANTHROPIC_API_KEY environment variable is required")
-	}
 
 	emb, err := embedder.NewOllamaEmbedder(*ollamaURL, "nomic-embed-text")
 	if err != nil {
@@ -150,14 +147,23 @@ func cmdServe(args []string) {
 	}
 	defer func() { _ = st.Close() }()
 
-	l := llm.NewAnthropicLLM(apiKey, *model)
+	// Auto-reindex if the database is empty.
+	autoReindex(context.Background(), st, emb, *adrDir)
 
-	pipeline := &rag.Pipeline{
-		Embedder: emb,
-		Store:    st,
-		LLM:     l,
-		ADRDir:   *adrDir,
-		TopK:    5,
+	// Build pipeline only if API key is available.
+	apiKey := os.Getenv("ANTHROPIC_API_KEY")
+	var pipeline *rag.Pipeline
+	if apiKey == "" {
+		log.Println("WARNING: ANTHROPIC_API_KEY not set — query endpoint disabled, ADR browsing available")
+	} else {
+		l := llm.NewAnthropicLLM(apiKey, *model)
+		pipeline = &rag.Pipeline{
+			Embedder: emb,
+			Store:    st,
+			LLM:     l,
+			ADRDir:   *adrDir,
+			TopK:    5,
+		}
 	}
 
 	srv := &server.Server{
@@ -165,9 +171,51 @@ func cmdServe(args []string) {
 		Store:    st,
 		Parser:   parser.NewMarkdownParser(),
 		Port:     *port,
+		DevMode:  *devMode,
 	}
 
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("Server error: %v", err)
+	}
+}
+
+// autoReindex checks if the database is empty and runs reindex if needed.
+// Retries with exponential backoff if Ollama is not yet ready.
+func autoReindex(ctx context.Context, st *store.SQLiteStore, emb *embedder.OllamaEmbedder, adrDir string) {
+	empty, err := st.IsEmpty(ctx)
+	if err != nil {
+		log.Printf("Warning: could not check database state: %v", err)
+		return
+	}
+	if !empty {
+		log.Println("Index already populated, skipping reindex")
+		return
+	}
+
+	log.Println("Auto-indexing ADRs...")
+	p := parser.NewMarkdownParser()
+	r := &reindex.Reindexer{Parser: p, Embedder: emb, Store: st}
+
+	backoff := time.Second
+	maxWait := 30 * time.Second
+	waited := time.Duration(0)
+
+	for {
+		result, err := r.Run(ctx, adrDir)
+		if err == nil {
+			log.Printf("Auto-index complete: %d ADRs, %d chunks", result.ADRCount, result.ChunkCount)
+			return
+		}
+
+		waited += backoff
+		if waited > maxWait {
+			log.Printf("Warning: auto-reindex failed after %v: %v", maxWait, err)
+			log.Println("Server starting without index — ADR browsing available, queries may fail")
+			return
+		}
+
+		log.Printf("Auto-reindex failed (retrying in %v): %v", backoff, err)
+		time.Sleep(backoff)
+		backoff *= 2
 	}
 }

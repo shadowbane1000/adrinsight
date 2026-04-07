@@ -58,6 +58,7 @@ adr-insight/
 │   ├── llm/                     # LLM interface + Anthropic impl
 │   └── server/                  # HTTP API + serves web UI
 ├── web/
+│   ├── embed.go                 # go:embed directive for static files
 │   └── static/                  # HTML/CSS/JS for the web UI
 ├── docs/
 │   ├── adr/                     # project's own ADRs (also demo dataset)
@@ -67,6 +68,8 @@ adr-insight/
 ├── .gitea/workflows/ci.yaml     # primary CI (lint + test + build)
 ├── .github/workflows/ci.yaml    # GitHub mirror CI
 ├── .specify/                    # spec-kit scaffolding
+├── docker/
+│   └── ollama-entrypoint.sh     # Ollama model pre-pull entrypoint
 ├── Dockerfile
 ├── docker-compose.yml
 ├── go.mod
@@ -102,3 +105,9 @@ swappable without changing callers (see ADR-001, Constitution Principle I).
   guarantees valid response format. See ADR-009.
 - **Full ADR expansion** — search retrieves chunks but synthesis gets full
   ADR files from disk. See ADR-010.
+- **Web UI** uses vanilla HTML/CSS/JS with marked.js (CDN) for markdown
+  rendering. Static files embedded in binary via `go:embed`. See ADR-012, ADR-013.
+- **Auto-reindex on startup** — the `serve` command checks if the database
+  is empty and runs reindex automatically, with retry backoff for Ollama.
+- **Docker multi-stage build** — `golang:bookworm` (build) to
+  `debian:bookworm-slim` (runtime) for CGO/libc ABI compatibility. See ADR-014.

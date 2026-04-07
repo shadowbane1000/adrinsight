@@ -58,6 +58,10 @@ func (m *mockStore) Search(ctx context.Context, query []float32, topK int) ([]st
 	return nil, nil
 }
 
+func (m *mockStore) ListADRs(ctx context.Context) ([]store.ADRSummary, error) {
+	return nil, nil
+}
+
 func (m *mockStore) Close() error {
 	return nil
 }

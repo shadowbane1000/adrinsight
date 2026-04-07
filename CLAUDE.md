@@ -54,6 +54,8 @@ Tyler is learning Go through this project. He's an expert in C#/C++/Java/Python.
 ## Active Technologies
 - Go 1.22+ (001-p1-foundation)
 - SQLite with sqlite-vec extension (embedded, single file) (001-p1-foundation)
+- Go 1.24+ (same as M1) (002-p1-rag-pipeline)
+- SQLite with sqlite-vec (from M1, unchanged) (002-p1-rag-pipeline)
 
 ## Recent Changes
 - 001-p1-foundation: Added Go 1.22+

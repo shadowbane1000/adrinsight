@@ -9,8 +9,11 @@ import (
 	"strings"
 
 	"github.com/tylerc-atx/adr-insight/internal/embedder"
+	"github.com/tylerc-atx/adr-insight/internal/llm"
 	"github.com/tylerc-atx/adr-insight/internal/parser"
+	"github.com/tylerc-atx/adr-insight/internal/rag"
 	"github.com/tylerc-atx/adr-insight/internal/reindex"
+	"github.com/tylerc-atx/adr-insight/internal/server"
 	"github.com/tylerc-atx/adr-insight/internal/store"
 )
 
@@ -18,7 +21,7 @@ const queryPrefix = "search_query: "
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "Usage: adr-insight <command> [flags]\n\nCommands:\n  reindex  Parse, embed, and store ADRs\n  search   Search indexed ADRs by similarity\n")
+		fmt.Fprintf(os.Stderr, "Usage: adr-insight <command> [flags]\n\nCommands:\n  reindex  Parse, embed, and store ADRs\n  search   Search indexed ADRs by similarity\n  serve    Start the HTTP API server\n")
 		os.Exit(1)
 	}
 
@@ -27,6 +30,8 @@ func main() {
 		cmdReindex(os.Args[2:])
 	case "search":
 		cmdSearch(os.Args[2:])
+	case "serve":
+		cmdServe(os.Args[2:])
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", os.Args[1])
 		os.Exit(1)
@@ -117,5 +122,52 @@ func cmdSearch(args []string) {
 		}
 		fmt.Printf("%d. [ADR-%03d] %s — %s (distance: %.2f)\n   %s\n\n",
 			i+1, r.ADRNumber, r.ADRTitle, r.Section, r.Score, preview)
+	}
+}
+
+func cmdServe(args []string) {
+	fs := flag.NewFlagSet("serve", flag.ExitOnError)
+	port := fs.Int("port", 8081, "HTTP server port")
+	dbPath := fs.String("db", "./adr-insight.db", "Path to SQLite database")
+	ollamaURL := fs.String("ollama-url", "http://localhost:11434", "Ollama API base URL")
+	adrDir := fs.String("adr-dir", "./docs/adr", "ADR directory for full content reads")
+	model := fs.String("model", "claude-sonnet-4-5", "Anthropic model to use")
+	_ = fs.Parse(args)
+
+	apiKey := os.Getenv("ANTHROPIC_API_KEY")
+	if apiKey == "" {
+		log.Fatal("ANTHROPIC_API_KEY environment variable is required")
+	}
+
+	emb, err := embedder.NewOllamaEmbedder(*ollamaURL, "nomic-embed-text")
+	if err != nil {
+		log.Fatalf("Failed to create embedder: %v", err)
+	}
+
+	st, err := store.NewSQLiteStore(*dbPath)
+	if err != nil {
+		log.Fatalf("Failed to open database: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	l := llm.NewAnthropicLLM(apiKey, *model)
+
+	pipeline := &rag.Pipeline{
+		Embedder: emb,
+		Store:    st,
+		LLM:     l,
+		ADRDir:   *adrDir,
+		TopK:    5,
+	}
+
+	srv := &server.Server{
+		Pipeline: pipeline,
+		Store:    st,
+		Parser:   parser.NewMarkdownParser(),
+		Port:     *port,
+	}
+
+	if err := srv.ListenAndServe(); err != nil {
+		log.Fatalf("Server error: %v", err)
 	}
 }

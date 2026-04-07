@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/tylerc-atx/adr-insight/internal/rag"
+	"github.com/shadowbane1000/adrinsight/internal/rag"
 )
 
 // LoadTestCases reads and validates test cases from a JSON file.

@@ -196,6 +196,47 @@ func TestParseDirEmpty(t *testing.T) {
 	}
 }
 
+func TestParseRelatedADRs(t *testing.T) {
+	p := NewMarkdownParser()
+	adrs, err := p.ParseDir(testdataDir())
+	if err != nil {
+		t.Fatalf("ParseDir: %v", err)
+	}
+
+	tests := []struct {
+		adrNum       int
+		wantRelCount int
+		wantTargets  []int
+	}{
+		{101, 1, []int{1}},           // ADR-101 relates to ADR-001
+		{102, 2, []int{101, 1}},      // ADR-102 relates to ADR-101 and ADR-001
+		{103, 1, []int{102}},         // ADR-103 superseded by ADR-102 (from Status field)
+		{1, 0, nil},                  // ADR-001 has no Related ADRs section
+	}
+
+	adrMap := make(map[int]ADR, len(adrs))
+	for _, a := range adrs {
+		adrMap[a.Number] = a
+	}
+
+	for _, tt := range tests {
+		adr, ok := adrMap[tt.adrNum]
+		if !ok {
+			t.Errorf("ADR-%03d not found in parsed results", tt.adrNum)
+			continue
+		}
+		if len(adr.RelatedADRs) != tt.wantRelCount {
+			t.Errorf("ADR-%03d: got %d relationships, want %d", tt.adrNum, len(adr.RelatedADRs), tt.wantRelCount)
+			continue
+		}
+		for i, target := range tt.wantTargets {
+			if adr.RelatedADRs[i].TargetADR != target {
+				t.Errorf("ADR-%03d rel[%d]: got target %d, want %d", tt.adrNum, i, adr.RelatedADRs[i].TargetADR, target)
+			}
+		}
+	}
+}
+
 func TestParseDirNonexistent(t *testing.T) {
 	p := NewMarkdownParser()
 	_, err := p.ParseDir("/nonexistent/path/that/does/not/exist")

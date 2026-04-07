@@ -35,11 +35,19 @@ type adrSummaryJSON struct {
 }
 
 type adrDetailResponse struct {
-	Number  int    `json:"number"`
-	Title   string `json:"title"`
-	Status  string `json:"status"`
-	Date    string `json:"date,omitempty"`
-	Content string `json:"content"`
+	Number        int               `json:"number"`
+	Title         string            `json:"title"`
+	Status        string            `json:"status"`
+	Date          string            `json:"date,omitempty"`
+	Content       string            `json:"content"`
+	Relationships []relationshipJSON `json:"relationships,omitempty"`
+}
+
+type relationshipJSON struct {
+	TargetADR   int    `json:"target_adr"`
+	TargetTitle string `json:"target_title"`
+	RelType     string `json:"rel_type"`
+	Description string `json:"description"`
 }
 
 type errorResponse struct {
@@ -137,12 +145,38 @@ func (s *Server) handleGetADR(w http.ResponseWriter, r *http.Request) {
 	// Extract date from file content.
 	date := extractDate(string(content))
 
+	// Build title lookup for relationship targets.
+	titleMap := make(map[int]string, len(adrs))
+	for _, a := range adrs {
+		titleMap[a.Number] = a.Title
+	}
+
+	// Load relationships for this ADR.
+	var relJSON []relationshipJSON
+	rels, err := s.Store.GetRelationships(r.Context(), num)
+	if err == nil {
+		for _, rel := range rels {
+			// Present relationship from this ADR's perspective.
+			target := rel.TargetADR
+			if target == num {
+				target = rel.SourceADR
+			}
+			relJSON = append(relJSON, relationshipJSON{
+				TargetADR:   target,
+				TargetTitle: titleMap[target],
+				RelType:     rel.RelType,
+				Description: rel.Description,
+			})
+		}
+	}
+
 	writeJSON(w, http.StatusOK, adrDetailResponse{
-		Number:  found.Number,
-		Title:   found.Title,
-		Status:  found.Status,
-		Date:    date,
-		Content: string(content),
+		Number:        found.Number,
+		Title:         found.Title,
+		Status:        found.Status,
+		Date:          date,
+		Content:       string(content),
+		Relationships: relJSON,
 	})
 }
 

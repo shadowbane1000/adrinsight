@@ -46,6 +46,16 @@ func (s *SQLiteStore) Reset(ctx context.Context) error {
 		"CREATE VIRTUAL TABLE vec_chunks USING vec0(embedding float[768])",
 		"CREATE VIRTUAL TABLE fts_chunks USING fts5(content)",
 		"CREATE TABLE IF NOT EXISTS keywords (word TEXT PRIMARY KEY)",
+		"DROP TABLE IF EXISTS adr_relationships",
+		`CREATE TABLE adr_relationships (
+			id          INTEGER PRIMARY KEY AUTOINCREMENT,
+			source_adr  INTEGER NOT NULL,
+			target_adr  INTEGER NOT NULL,
+			rel_type    TEXT    NOT NULL,
+			description TEXT    NOT NULL DEFAULT ''
+		)`,
+		"CREATE INDEX idx_rel_source ON adr_relationships(source_adr)",
+		"CREATE INDEX idx_rel_target ON adr_relationships(target_adr)",
 	}
 	for _, stmt := range stmts {
 		if _, err := s.db.ExecContext(ctx, stmt); err != nil {
@@ -267,6 +277,75 @@ func (s *SQLiteStore) LoadKeywords(ctx context.Context) (map[string]bool, error)
 		return nil, nil
 	}
 	return vocab, rows.Err()
+}
+
+// StoreRelationships saves ADR relationships, replacing any existing ones.
+func (s *SQLiteStore) StoreRelationships(ctx context.Context, rels []ADRRelationship) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.ExecContext(ctx, "DELETE FROM adr_relationships"); err != nil {
+		return fmt.Errorf("clearing relationships: %w", err)
+	}
+
+	stmt, err := tx.PrepareContext(ctx,
+		"INSERT INTO adr_relationships (source_adr, target_adr, rel_type, description) VALUES (?, ?, ?, ?)")
+	if err != nil {
+		return fmt.Errorf("prepare relationship insert: %w", err)
+	}
+	defer func() { _ = stmt.Close() }()
+
+	for _, r := range rels {
+		if _, err := stmt.ExecContext(ctx, r.SourceADR, r.TargetADR, r.RelType, r.Description); err != nil {
+			return fmt.Errorf("insert relationship %d→%d: %w", r.SourceADR, r.TargetADR, err)
+		}
+	}
+	return tx.Commit()
+}
+
+// GetRelationships returns all relationships where the given ADR is source or target.
+func (s *SQLiteStore) GetRelationships(ctx context.Context, adrNumber int) ([]ADRRelationship, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT source_adr, target_adr, rel_type, description
+		 FROM adr_relationships
+		 WHERE source_adr = ? OR target_adr = ?`, adrNumber, adrNumber)
+	if err != nil {
+		return nil, fmt.Errorf("query relationships: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var rels []ADRRelationship
+	for rows.Next() {
+		var r ADRRelationship
+		if err := rows.Scan(&r.SourceADR, &r.TargetADR, &r.RelType, &r.Description); err != nil {
+			return nil, fmt.Errorf("scan relationship: %w", err)
+		}
+		rels = append(rels, r)
+	}
+	return rels, rows.Err()
+}
+
+// GetAllRelationships returns every relationship in the store.
+func (s *SQLiteStore) GetAllRelationships(ctx context.Context) ([]ADRRelationship, error) {
+	rows, err := s.db.QueryContext(ctx,
+		"SELECT source_adr, target_adr, rel_type, description FROM adr_relationships")
+	if err != nil {
+		return nil, fmt.Errorf("query all relationships: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var rels []ADRRelationship
+	for rows.Next() {
+		var r ADRRelationship
+		if err := rows.Scan(&r.SourceADR, &r.TargetADR, &r.RelType, &r.Description); err != nil {
+			return nil, fmt.Errorf("scan relationship: %w", err)
+		}
+		rels = append(rels, r)
+	}
+	return rels, rows.Err()
 }
 
 // prepareFTSQuery converts a natural language query into an FTS5 OR query.

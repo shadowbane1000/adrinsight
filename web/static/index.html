@@ -61,6 +61,9 @@
           uses a second LLM call to score the system's own answers for accuracy and completeness,
           alongside mechanical retrieval metrics (precision/recall). Regressions are caught in CI
           before merge &mdash; the LLM evaluates the LLM.</li>
+          <li><strong>LLM-powered ADR intelligence</strong> &mdash; an LLM is also used for
+          ADR relationship classification and keyword identification, enriching the knowledge
+          graph beyond what static analysis alone can provide.</li>
         </ul>
 
         <h3>Sample Queries</h3>
@@ -72,6 +75,7 @@
           <li>&ldquo;If this system needed to support multiple teams with separate ADR collections, which architectural decisions would need to be revisited?&rdquo;</li>
           <li>&ldquo;What is the chunking strategy and why was it chosen over alternatives like sliding window or semantic chunking?&rdquo;</li>
           <li>&ldquo;How does the system handle the case where a question has no relevant ADRs?&rdquo;</li>
+          <li>&ldquo;What are all the ways SQLite is used in this system, and how do those uses depend on each other?&rdquo;</li>
         </ul>
 
         <h3>At Scale</h3>
@@ -89,7 +93,7 @@
         component without rippling through the rest of the system.</p>
 
         <p class="about-author">Built by Tyler Colbert</p>
-        <p><a href="https://github.com/tylerc-atx/adr-insight" target="_blank" rel="noopener">View on GitHub &rarr;</a></p>
+        <p><a href="https://github.com/shadowbane1000/adrinsight" target="_blank" rel="noopener">View on GitHub &rarr;</a></p>
       </div>
       <div id="adr-detail" class="hidden"></div>
     </section>

@@ -11,8 +11,8 @@ Built using **spec-driven development** with a modified version of GitHub's spec
 The fastest way to run ADR Insight:
 
 ```bash
-git clone https://github.com/tylerc-atx/adr-insight.git
-cd adr-insight
+git clone https://github.com/shadowbane1000/adrinsight.git
+cd adrinsight
 ANTHROPIC_API_KEY=sk-... docker compose up
 ```
 
@@ -126,6 +126,11 @@ This project's own [Architecture Decision Records](docs/adr/) serve as both docu
 | [ADR-015](docs/adr/ADR-015-mattn-cgo-sqlite-driver.md) | mattn/CGO SQLite Driver (supersedes ADR-006) |
 | [ADR-016](docs/adr/ADR-016-llm-judge-evaluation.md) | LLM-as-Judge Evaluation |
 | [ADR-017](docs/adr/ADR-017-fts5-hybrid-search.md) | FTS5 Hybrid Search |
+| [ADR-018](docs/adr/ADR-018-llm-keyword-extraction.md) | LLM Keyword Extraction for FTS |
+| [ADR-019](docs/adr/ADR-019-deterministic-retrieval-metrics.md) | Deterministic Retrieval Metrics |
+| [ADR-020](docs/adr/ADR-020-adr-relationship-model.md) | ADR Relationship Model |
+| [ADR-021](docs/adr/ADR-021-llm-relationship-classification.md) | LLM Relationship Classification |
+| [ADR-022](docs/adr/ADR-022-chunking-strategy-validated.md) | Chunking Strategy Validated in Phase 2 |
 
 ## Author
 

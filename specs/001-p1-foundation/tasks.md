@@ -15,7 +15,7 @@
 
 **Purpose**: Initialize Go module, project structure, and shared configuration.
 
-- [X] T001 Initialize Go module with `go mod init github.com/tylerc-atx/adr-insight` in go.mod
+- [X] T001 Initialize Go module with `go mod init github.com/shadowbane1000/adrinsight` in go.mod
 - [X] T002 Create directory structure: cmd/adr-insight/, internal/parser/, internal/embedder/, internal/store/, internal/reindex/, testdata/, web/static/
 - [X] T003 [P] Create .gitignore with Go patterns (*.exe, *.test, *.out, vendor/, adr-insight.db)
 - [X] T004 [P] Create .golangci.yml with standard Go linter configuration in .golangci.yml

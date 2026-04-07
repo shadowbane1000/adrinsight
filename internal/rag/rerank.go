@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/tylerc-atx/adr-insight/internal/store"
+	"github.com/shadowbane1000/adrinsight/internal/store"
 )
 
 // RerankConfig controls the reranking heuristics.
@@ -29,8 +29,13 @@ type Reranker interface {
 }
 
 // DefaultReranker applies three heuristics: title match boost, status
-// deprioritization, and section relevance boost.
-type DefaultReranker struct{}
+// deprioritization (using authoritative relationship data), and section
+// relevance boost.
+type DefaultReranker struct {
+	// Superseded maps ADR numbers to true if they have a superseded_by relationship.
+	// Loaded from the relationship store at pipeline startup.
+	Superseded map[int]bool
+}
 
 func (r *DefaultReranker) Rerank(query string, results []store.SearchResult, config RerankConfig) []store.SearchResult {
 	queryLower := strings.ToLower(query)
@@ -50,10 +55,16 @@ func (r *DefaultReranker) Rerank(query string, results []store.SearchResult, con
 			}
 		}
 
-		// 2. Status deprioritization: penalize superseded/deprecated ADRs.
-		contentLower := strings.ToLower(reranked[i].Content)
-		if strings.Contains(contentLower, "superseded") || strings.Contains(contentLower, "deprecated") {
+		// 2. Status deprioritization: use authoritative relationship data
+		//    if available, fall back to content-based heuristic.
+		if r.Superseded != nil && r.Superseded[reranked[i].ADRNumber] {
 			reranked[i].Score -= config.StatusPenalty
+		} else if r.Superseded == nil {
+			// Fallback: content-based detection.
+			contentLower := strings.ToLower(reranked[i].Content)
+			if strings.Contains(contentLower, "superseded") || strings.Contains(contentLower, "deprecated") {
+				reranked[i].Score -= config.StatusPenalty
+			}
 		}
 
 		// 3. Section relevance boost: queries about rationale/alternatives

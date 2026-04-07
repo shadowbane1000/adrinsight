@@ -59,6 +59,27 @@
     ]
   },
   {
+    "id": "sqlite-driver-chain",
+    "question": "What happened with the SQLite driver decision?",
+    "expected_adrs": [4, 6, 15],
+    "key_facts": [
+      "ADR-004 chose SQLite with sqlite-vec for storage",
+      "ADR-006 initially chose ncruces/go-sqlite3 WASM driver",
+      "ADR-015 superseded ADR-006, switching to mattn/go-sqlite3 CGO",
+      "The driver change was driven by sqlite-vec WASM binding incompatibilities"
+    ]
+  },
+  {
+    "id": "sqlite-downstream",
+    "question": "What decisions were affected by the SQLite choice?",
+    "expected_adrs": [6, 14, 15, 17],
+    "key_facts": [
+      "The SQLite driver choice led to ADR-006 (ncruces/WASM) then ADR-015 (mattn/CGO)",
+      "FTS5 hybrid search (ADR-017) was built on SQLite's FTS5 module",
+      "Docker multi-stage build (ADR-014) was shaped by CGO requirement from the SQLite driver"
+    ]
+  },
+  {
     "id": "no-relevant-adrs",
     "question": "How does the system handle the case where a question has no relevant ADRs?",
     "expected_adrs": [9],
@@ -66,6 +87,18 @@
       "The RAG pipeline returns whatever top-K results exist from vector search",
       "The LLM is instructed to answer only from provided context",
       "Structured output format includes an answer field and citations array"
+    ]
+  },
+  {
+    "id": "sqlite-uses",
+    "question": "What are all the ways SQLite is used in this system, and how do those uses depend on each other?",
+    "expected_adrs": [4, 15, 17],
+    "key_facts": [
+      "SQLite stores vector embeddings via sqlite-vec extension",
+      "SQLite provides full-text search via FTS5 virtual tables",
+      "SQLite stores ADR relationship graph in adr_relationships table",
+      "mattn/go-sqlite3 CGO driver enables both sqlite-vec and FTS5",
+      "FTS5 and sqlite-vec are populated in the same StoreChunks transaction"
     ]
   }
 ]

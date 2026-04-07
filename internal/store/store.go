@@ -31,6 +31,23 @@ type ADRSummary struct {
 	Path   string
 }
 
+// Relationship type constants.
+const (
+	RelSupersedes   = "supersedes"
+	RelSupersededBy = "superseded_by"
+	RelDependsOn    = "depends_on"
+	RelDrives       = "drives"
+	RelRelatedTo    = "related_to"
+)
+
+// ADRRelationship is a directed, typed relationship between two ADRs.
+type ADRRelationship struct {
+	SourceADR   int
+	TargetADR   int
+	RelType     string
+	Description string
+}
+
 // Store persists ADR chunks with embeddings and supports similarity search.
 type Store interface {
 	Reset(ctx context.Context) error
@@ -40,6 +57,9 @@ type Store interface {
 	HybridSearch(ctx context.Context, queryVec []float32, queryText string, topK int, vecWeight, kwWeight float64) ([]SearchResult, error)
 	StoreKeywords(ctx context.Context, words []string) error
 	LoadKeywords(ctx context.Context) (map[string]bool, error)
+	StoreRelationships(ctx context.Context, rels []ADRRelationship) error
+	GetRelationships(ctx context.Context, adrNumber int) ([]ADRRelationship, error)
+	GetAllRelationships(ctx context.Context) ([]ADRRelationship, error)
 	ListADRs(ctx context.Context) ([]ADRSummary, error)
 	IsEmpty(ctx context.Context) (bool, error)
 	Close() error

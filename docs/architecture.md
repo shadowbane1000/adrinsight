@@ -41,12 +41,14 @@ regenerated from the source ADR files at any time.
 
 1. User sends a question via `POST /query`
 2. Question is embedded via Ollama with `search_query:` prefix
-3. Hybrid search: vector similarity (sqlite-vec) + keyword search (FTS5 BM25), weighted 0.7/0.3, merged and deduplicated
-4. Reranking: title match boost, superseded/deprecated penalty, section relevance boost
-5. Results deduplicated by ADR number; full ADR files read from disk
-6. Full ADR content + question sent to Anthropic Claude for synthesis
-7. Claude returns structured JSON (answer + citations array) via OutputConfig
-8. HTTP API returns the structured response to the client
+3. Hybrid search: vector similarity (sqlite-vec) + keyword search (FTS5 BM25), weighted 0.6/0.4, merged and deduplicated
+4. Reranking: title match boost, superseded penalty (authoritative relationship data), section relevance boost
+5. Results deduplicated by ADR number
+6. Relationship expansion: related ADRs added via 1-hop graph traversal + full supersession chain walking
+7. Relationship context summary prepended to LLM prompt
+8. Full ADR content + question sent to Anthropic Claude for synthesis
+9. Claude returns structured JSON (answer + citations array) via OutputConfig
+10. HTTP API returns the structured response to the client
 
 ## Project Structure
 
@@ -129,5 +131,15 @@ swappable without changing callers (see ADR-001, Constitution Principle I).
   0-1 and merged with configurable weights (default 0.7 vector, 0.3 keyword).
   See ADR-017.
 - **Reranking** — after hybrid search, domain-specific heuristics adjust result
-  ordering: title match boost (+0.2), superseded/deprecated penalty (-0.1),
-  and section relevance boost for rationale/alternative queries (+0.1).
+  ordering: title match boost (+0.2), superseded/deprecated penalty (-0.1
+  using authoritative relationship data), and section relevance boost for
+  rationale/alternative queries (+0.1).
+- **LLM keyword extraction** — during reindex, Haiku extracts domain-specific
+  search terms from each ADR. FTS queries are filtered to this vocabulary,
+  eliminating noise from generic English words. See ADR-018.
+- **ADR relationship graph** — during reindex, "Related ADRs" sections are
+  parsed and relationship types classified via Haiku. Five types: supersedes,
+  superseded_by, depends_on, drives, related_to. Stored in
+  `adr_relationships` table. Used for retrieval expansion (co-retrieve
+  related ADRs), synthesis context (relationship summary for the LLM),
+  reranker penalties, and UI navigation links. See ADR-020, ADR-021.

@@ -88,5 +88,17 @@
       "The LLM is instructed to answer only from provided context",
       "Structured output format includes an answer field and citations array"
     ]
+  },
+  {
+    "id": "sqlite-uses",
+    "question": "What are all the ways SQLite is used in this system, and how do those uses depend on each other?",
+    "expected_adrs": [4, 15, 17],
+    "key_facts": [
+      "SQLite stores vector embeddings via sqlite-vec extension",
+      "SQLite provides full-text search via FTS5 virtual tables",
+      "SQLite stores ADR relationship graph in adr_relationships table",
+      "mattn/go-sqlite3 CGO driver enables both sqlite-vec and FTS5",
+      "FTS5 and sqlite-vec are populated in the same StoreChunks transaction"
+    ]
   }
 ]

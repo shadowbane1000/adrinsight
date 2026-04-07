@@ -48,6 +48,7 @@ func cmdReindex(args []string) {
 	adrDir := fs.String("adr-dir", "./docs/adr", "Directory containing ADR files")
 	dbPath := fs.String("db", "./adr-insight.db", "Path to SQLite database")
 	ollamaURL := fs.String("ollama-url", "http://localhost:11434", "Ollama API base URL")
+	chunkStrategy := fs.String("chunk-strategy", "sections", "Chunking strategy: sections, wholedoc, preamble")
 	_ = fs.Parse(args)
 
 	ctx := context.Background()
@@ -66,6 +67,22 @@ func cmdReindex(args []string) {
 	defer func() { _ = st.Close() }()
 
 	r := &reindex.Reindexer{Parser: p, Embedder: emb, Store: st}
+
+	// Use Anthropic for keyword extraction if API key is available.
+	if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" {
+		r.Keywords = llm.NewAnthropicLLM(apiKey, "")
+	}
+
+	switch *chunkStrategy {
+	case "sections":
+		// default — uses Parser.ChunkADR
+	case "wholedoc":
+		r.ChunkFn = p.ChunkADRWithWholeDoc
+	case "preamble":
+		r.ChunkFn = p.ChunkADRWithPreamble
+	default:
+		log.Fatalf("Unknown chunk strategy: %s (use sections, wholedoc, or preamble)", *chunkStrategy)
+	}
 	result, err := r.Run(ctx, *adrDir)
 	if err != nil {
 		log.Fatalf("Reindex failed: %v", err)
@@ -109,7 +126,7 @@ func cmdSearch(args []string) {
 		log.Fatal("No embedding returned for query")
 	}
 
-	results, err := st.Search(ctx, vecs[0], *topK)
+	results, err := st.HybridSearch(ctx, vecs[0], query, *topK, 0.6, 0.4)
 	if err != nil {
 		log.Fatalf("Search failed: %v", err)
 	}
@@ -166,7 +183,8 @@ func cmdServe(args []string) {
 			Store:    st,
 			LLM:     l,
 			ADRDir:   *adrDir,
-			TopK:    5,
+			TopK:     5,
+			Reranker: &rag.DefaultReranker{},
 		}
 	}
 
@@ -189,6 +207,7 @@ func cmdEval(args []string) {
 	baselinePath := fs.String("baseline", "./testdata/eval/baseline.json", "Path to baseline file")
 	saveBaseline := fs.Bool("save-baseline", false, "Save this run's results as the new baseline")
 	outputPath := fs.String("output", "", "Write full results JSON to this file")
+	skipJudge := fs.Bool("skip-judge", false, "Skip LLM judge scoring (retrieval metrics only)")
 	delta := fs.Float64("delta", 0.2, "Maximum allowed per-question score drop (0.0-1.0)")
 	dbPath := fs.String("db", "./adr-insight.db", "Path to SQLite database")
 	ollamaURL := fs.String("ollama-url", "http://localhost:11434", "Ollama API base URL")
@@ -235,10 +254,18 @@ func cmdEval(args []string) {
 		Store:    st,
 		LLM:     l,
 		ADRDir:   *adrDir,
-		TopK:    5,
+		TopK:     5,
+		Reranker: &rag.DefaultReranker{},
 	}
 
-	judge := eval.NewAnthropicJudge(apiKey, *model)
+	// Create judge (nil if --skip-judge).
+	var judge eval.Judge
+	if !*skipJudge && apiKey != "" {
+		judge = eval.NewAnthropicJudge(apiKey, *model)
+	}
+	if *skipJudge {
+		log.Println("LLM judge scoring skipped (--skip-judge)")
+	}
 
 	// Run evaluation.
 	report, err := eval.RunEval(ctx, cases, pipeline, judge, *adrDir)

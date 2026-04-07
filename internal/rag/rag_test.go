@@ -28,7 +28,15 @@ func (m *mockStore) Reset(_ context.Context) error                              
 func (m *mockStore) StoreChunks(_ context.Context, _ []store.ChunkRecord) error       { return nil }
 func (m *mockStore) ListADRs(_ context.Context) ([]store.ADRSummary, error)           { return nil, nil }
 func (m *mockStore) Close() error                                                     { return nil }
-func (m *mockStore) IsEmpty(_ context.Context) (bool, error)                          { return true, nil }
+func (m *mockStore) IsEmpty(_ context.Context) (bool, error)               { return true, nil }
+func (m *mockStore) StoreKeywords(_ context.Context, _ []string) error     { return nil }
+func (m *mockStore) LoadKeywords(_ context.Context) (map[string]bool, error) { return nil, nil }
+func (m *mockStore) SearchFTS(_ context.Context, _ string, _ int) ([]store.SearchResult, error) {
+	return nil, nil
+}
+func (m *mockStore) HybridSearch(_ context.Context, _ []float32, _ string, _ int, _, _ float64) ([]store.SearchResult, error) {
+	return m.results, nil
+}
 func (m *mockStore) Search(_ context.Context, _ []float32, _ int) ([]store.SearchResult, error) {
 	return m.results, nil
 }

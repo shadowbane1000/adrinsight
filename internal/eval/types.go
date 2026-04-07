@@ -15,7 +15,9 @@ type EvalResult struct {
 	ID                   string  `json:"id"`
 	Question             string  `json:"question"`
 	Answer               string  `json:"answer"`
-	ReturnedADRs         []int   `json:"returned_adrs"`
+	RetrievedADRs        []int   `json:"retrieved_adrs"`
+	CitedADRs            []int   `json:"cited_adrs"`
+	ReturnedADRs         []int   `json:"returned_adrs"` // deprecated: use CitedADRs
 	Precision            float64 `json:"precision"`
 	Recall               float64 `json:"recall"`
 	F1                   float64 `json:"f1"`

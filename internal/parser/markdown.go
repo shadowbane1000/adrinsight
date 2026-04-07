@@ -192,6 +192,48 @@ func (p *MarkdownParser) ChunkADR(adr ADR) []Chunk {
 	return chunks
 }
 
+// ChunkADRWithWholeDoc produces section chunks PLUS one whole-ADR chunk.
+func (p *MarkdownParser) ChunkADRWithWholeDoc(adr ADR) []Chunk {
+	chunks := p.ChunkADR(adr)
+	// Add a whole-document chunk.
+	body := strings.TrimSpace(adr.Body)
+	if body != "" {
+		chunks = append(chunks, Chunk{
+			ADRNumber:  adr.Number,
+			SectionKey: "WholeDocument",
+			Content:    body,
+		})
+	}
+	return chunks
+}
+
+// ChunkADRWithPreamble produces section chunks where each is prepended with
+// the ADR title and first sentence of Context for additional context.
+func (p *MarkdownParser) ChunkADRWithPreamble(adr ADR) []Chunk {
+	preamble := fmt.Sprintf("ADR-%03d: %s.", adr.Number, adr.Title)
+
+	// Extract first sentence of Context section.
+	chunks := p.ChunkADR(adr)
+	for _, c := range chunks {
+		if c.SectionKey == "Context" {
+			firstSentence := c.Content
+			if idx := strings.Index(firstSentence, ". "); idx != -1 {
+				firstSentence = firstSentence[:idx+1]
+			} else if len(firstSentence) > 200 {
+				firstSentence = firstSentence[:200]
+			}
+			preamble += " " + firstSentence
+			break
+		}
+	}
+
+	// Prepend preamble to each chunk.
+	for i := range chunks {
+		chunks[i].Content = preamble + "\n\n" + chunks[i].Content
+	}
+	return chunks
+}
+
 // headingText extracts the text content of a heading node without using
 // the deprecated Node.Text() method.
 func headingText(h *ast.Heading, src []byte) string {

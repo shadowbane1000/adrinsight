@@ -11,8 +11,12 @@ User Question
                   ▼
             [RAG Pipeline]
              /          \
-   [Embed Question]   [Retrieve Top-K]
-   (Ollama local)     (SQLite + sqlite-vec)
+   [Embed Question]   [Hybrid Search]
+   (Ollama local)     (sqlite-vec + FTS5)
+                          │
+                          ▼
+                     [Rerank]
+                   (domain heuristics)
                           │
                           ▼
                    [Synthesize Answer]
@@ -37,11 +41,12 @@ regenerated from the source ADR files at any time.
 
 1. User sends a question via `POST /query`
 2. Question is embedded via Ollama with `search_query:` prefix
-3. Similarity search in SQLite returns top-K relevant ADR chunks
-4. Results deduplicated by ADR number; full ADR files read from disk
-5. Full ADR content + question sent to Anthropic Claude for synthesis
-6. Claude returns structured JSON (answer + citations array) via OutputConfig
-7. HTTP API returns the structured response to the client
+3. Hybrid search: vector similarity (sqlite-vec) + keyword search (FTS5 BM25), weighted 0.7/0.3, merged and deduplicated
+4. Reranking: title match boost, superseded/deprecated penalty, section relevance boost
+5. Results deduplicated by ADR number; full ADR files read from disk
+6. Full ADR content + question sent to Anthropic Claude for synthesis
+7. Claude returns structured JSON (answer + citations array) via OutputConfig
+8. HTTP API returns the structured response to the client
 
 ## Project Structure
 
@@ -89,8 +94,9 @@ swappable without changing callers (see ADR-001, Constitution Principle I).
 |-----------|---------|----------------|
 | Parser    | Parse ADR markdown files | goldmark + goldmark-meta |
 | Embedder  | Convert text to vector embeddings | Ollama (`nomic-embed-text`) |
-| Store     | Persist and search vectors + metadata | SQLite + `sqlite-vec` (mattn/go-sqlite3 + CGO) |
+| Store     | Persist and search vectors + metadata | SQLite + `sqlite-vec` + FTS5 (mattn/go-sqlite3 + CGO) |
 | LLM       | Synthesize answers from context | Anthropic Claude API (official Go SDK) |
+| Reranker  | Reorder search results with domain heuristics | DefaultReranker (title boost, status penalty, section relevance) |
 
 ## Technical Notes
 
@@ -118,3 +124,10 @@ swappable without changing callers (see ADR-001, Constitution Principle I).
   the live system, scores answers with mechanical metrics (precision/recall/F1)
   and LLM-as-judge (accuracy/completeness), and detects regressions against
   a saved baseline. See ADR-016.
+- **Hybrid search** — combines vector similarity (sqlite-vec, cosine distance)
+  with keyword matching (FTS5 BM25). Both scores are min-max normalized to
+  0-1 and merged with configurable weights (default 0.7 vector, 0.3 keyword).
+  See ADR-017.
+- **Reranking** — after hybrid search, domain-specific heuristics adjust result
+  ordering: title match boost (+0.2), superseded/deprecated penalty (-0.1),
+  and section relevance boost for rationale/alternative queries (+0.1).

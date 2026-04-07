@@ -59,6 +59,8 @@ Tyler is learning Go through this project. He's an expert in C#/C++/Java/Python.
 - Go 1.24+ (same as M1/M2) (003-p1-web-ui-docker)
 - Go 1.24+ (same as M1-M3) (004-p2-eval-harness)
 - JSON files for test cases, baselines, and results (004-p2-eval-harness)
+- Go 1.24+ (same as M1-M4a) (005-p2-retrieval-improvements)
+- SQLite with sqlite-vec + FTS5 virtual tables (005-p2-retrieval-improvements)
 
 ## Recent Changes
 - 001-p1-foundation: Added Go 1.22+

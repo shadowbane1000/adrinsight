@@ -1,13 +1,15 @@
 .PHONY: lint test build check clean eval
 
+GO_TAGS = -tags fts5
+
 lint:
-	golangci-lint run ./...
+	golangci-lint run --build-tags fts5 ./...
 
 test:
-	go test -short ./...
+	go test -short $(GO_TAGS) ./...
 
 build:
-	go build -o adr-insight ./cmd/adr-insight
+	go build $(GO_TAGS) -o adr-insight ./cmd/adr-insight
 
 check: lint test build
 	@echo "All checks passed."

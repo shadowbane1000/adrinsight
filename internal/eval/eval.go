@@ -118,25 +118,31 @@ func RunEval(ctx context.Context, cases []TestCase, pipeline *rag.Pipeline, judg
 			continue
 		}
 
-		// Extract returned ADR numbers from citations.
-		var returnedADRs []int
+		// Extract cited ADR numbers from LLM response.
+		var citedADRs []int
 		for _, c := range resp.Citations {
-			returnedADRs = append(returnedADRs, c.ADRNumber)
+			citedADRs = append(citedADRs, c.ADRNumber)
 		}
 
-		// Compute mechanical retrieval scores.
-		precision, recall, f1 := ComputeRetrieval(returnedADRs, tc.ExpectedADRs)
+		// Compute retrieval scores from deterministic search results.
+		precision, recall, f1 := ComputeRetrieval(resp.RetrievedADRs, tc.ExpectedADRs)
 
-		// Read expected ADR content for the judge.
-		adrContent := loadExpectedADRContent(tc.ExpectedADRs, adrDir)
-
-		// Score with LLM judge.
-		jr, err := judge.Score(qCtx, tc.Question, adrContent, resp.Answer)
-		if err != nil {
-			log.Printf("Warning: judge scoring failed for %q: %v (using 0 scores)", tc.ID, err)
+		// Score with LLM judge (skip if judge is nil).
+		var jr JudgeResult
+		if judge != nil {
+			adrContent := loadExpectedADRContent(tc.ExpectedADRs, adrDir)
+			jr, err = judge.Score(qCtx, tc.Question, adrContent, resp.Answer)
+			if err != nil {
+				log.Printf("Warning: judge scoring failed for %q: %v (using 0 scores)", tc.ID, err)
+				jr = JudgeResult{
+					AccuracyReason:     "Judge scoring failed",
+					CompletenessReason: "Judge scoring failed",
+				}
+			}
+		} else {
 			jr = JudgeResult{
-				AccuracyReason:     "Judge scoring failed",
-				CompletenessReason: "Judge scoring failed",
+				AccuracyReason:     "skipped",
+				CompletenessReason: "skipped",
 			}
 		}
 
@@ -144,7 +150,9 @@ func RunEval(ctx context.Context, cases []TestCase, pipeline *rag.Pipeline, judg
 			ID:                 tc.ID,
 			Question:           tc.Question,
 			Answer:             resp.Answer,
-			ReturnedADRs:       returnedADRs,
+			RetrievedADRs:      resp.RetrievedADRs,
+			CitedADRs:          citedADRs,
+			ReturnedADRs:       citedADRs, // backward compat
 			Precision:          precision,
 			Recall:             recall,
 			F1:                 f1,

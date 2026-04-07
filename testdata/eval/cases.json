@@ -59,6 +59,27 @@
     ]
   },
   {
+    "id": "sqlite-driver-chain",
+    "question": "What happened with the SQLite driver decision?",
+    "expected_adrs": [4, 6, 15],
+    "key_facts": [
+      "ADR-004 chose SQLite with sqlite-vec for storage",
+      "ADR-006 initially chose ncruces/go-sqlite3 WASM driver",
+      "ADR-015 superseded ADR-006, switching to mattn/go-sqlite3 CGO",
+      "The driver change was driven by sqlite-vec WASM binding incompatibilities"
+    ]
+  },
+  {
+    "id": "sqlite-downstream",
+    "question": "What decisions were affected by the SQLite choice?",
+    "expected_adrs": [6, 14, 15, 17],
+    "key_facts": [
+      "The SQLite driver choice led to ADR-006 (ncruces/WASM) then ADR-015 (mattn/CGO)",
+      "FTS5 hybrid search (ADR-017) was built on SQLite's FTS5 module",
+      "Docker multi-stage build (ADR-014) was shaped by CGO requirement from the SQLite driver"
+    ]
+  },
+  {
     "id": "no-relevant-adrs",
     "question": "How does the system handle the case where a question has no relevant ADRs?",
     "expected_adrs": [9],

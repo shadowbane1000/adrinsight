@@ -55,7 +55,19 @@
         return res.json();
       })
       .then(function (data) {
-        adrDetail.innerHTML = marked.parse(data.content || "");
+        var html = marked.parse(data.content || "");
+        // Append relationship links if available.
+        if (data.relationships && data.relationships.length > 0) {
+          html += renderRelationships(data.relationships);
+        }
+        adrDetail.innerHTML = html;
+        // Wire up relationship link clicks.
+        adrDetail.querySelectorAll(".rel-link").forEach(function (link) {
+          link.addEventListener("click", function (e) {
+            e.preventDefault();
+            showADR(parseInt(link.getAttribute("data-adr"), 10));
+          });
+        });
         aboutContent.classList.add("hidden");
         adrDetail.classList.remove("hidden");
         setActiveADR(number);
@@ -76,6 +88,35 @@
         li.classList.remove("active");
       }
     });
+  }
+
+  function renderRelationships(rels) {
+    // Group by relationship type.
+    var groups = {};
+    var typeLabels = {
+      supersedes: "Supersedes",
+      superseded_by: "Superseded By",
+      depends_on: "Depends On",
+      drives: "Drives",
+      related_to: "Related"
+    };
+    rels.forEach(function (r) {
+      var label = typeLabels[r.rel_type] || r.rel_type;
+      if (!groups[label]) groups[label] = [];
+      groups[label].push(r);
+    });
+    var html = '<div class="adr-relationships"><h3>Related ADRs</h3>';
+    Object.keys(groups).forEach(function (label) {
+      html += "<h4>" + label + "</h4><ul>";
+      groups[label].forEach(function (r) {
+        html += '<li><a href="#" class="rel-link" data-adr="' + r.target_adr +
+          '">ADR-' + String(r.target_adr).padStart(3, "0") + ": " +
+          (r.target_title || "Unknown") + "</a></li>";
+      });
+      html += "</ul>";
+    });
+    html += "</div>";
+    return html;
   }
 
   // --- About Panel (US4) ---

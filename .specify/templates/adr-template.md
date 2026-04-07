@@ -38,4 +38,7 @@
 
 ## Related ADRs
 
-- [ADR-NNN: Title — relationship (e.g., supersedes, depends on, related to)]
+<!-- Use [type] tags for machine-parseable relationships. Supported types:
+     [supersedes], [superseded-by], [depends-on], [drives], [related] -->
+
+- ADR-NNN: Title [type] — description of the relationship

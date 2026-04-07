@@ -25,6 +25,17 @@ ADR Insight — AI-powered search and reasoning over Architecture Decision Recor
 - **Storage:** SQLite with `sqlite-vec` extension
 - **Web UI:** Simple HTML/CSS/JS served by the Go HTTP server (no frontend framework for v1)
 
+## ADR Relationship Convention
+
+When writing "Related ADRs" sections in new ADRs, include a bracketed type tag for machine-parseable relationships:
+- `- ADR-NNN: Title [supersedes] — description`
+- `- ADR-NNN: Title [superseded-by] — description`
+- `- ADR-NNN: Title [depends-on] — description`
+- `- ADR-NNN: Title [drives] — description`
+- `- ADR-NNN: Title [related] — description`
+
+The LLM classifier handles legacy ADRs without tags, but tags improve parsing reliability.
+
 ## When Making Decisions
 
 If a design choice is non-trivial, write an ADR in `docs/adr/` following the existing format (see ADR-001 through ADR-004 for examples). ADRs are a core part of this project's value — they're the demo dataset and interview talking points.

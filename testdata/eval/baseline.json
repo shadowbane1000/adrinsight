@@ -1,19 +1,20 @@
 {
-  "created_at": "2026-04-07T20:05:33.0330346Z",
+  "created_at": "2026-04-07T22:14:39.949982274Z",
   "delta_threshold": 0.2,
   "results": [
     {
       "id": "sqlite-tradeoffs",
       "question": "What tradeoffs were made by choosing SQLite over PostgreSQL, and how would you migrate if the system needed horizontal scaling?",
-      "answer": "The main tradeoffs of choosing SQLite over PostgreSQL were **operational simplicity versus scalability**. SQLite was chosen because it's an embedded database requiring no separate server, no Docker container, no connection management, and no port conflicts (ADR-004). The database is a single file that can be deleted and regenerated from source ADRs at any time, making it ideal for local development and the project's corpus size (dozens to low hundreds of ADRs). However, SQLite's concurrency model (single writer) would become a bottleneck at production scale, and it cannot scale horizontally.\n\nFor horizontal scaling migration, the architecture explicitly planned for this scenario. **The storage layer is behind a Go interface** (Constitution Principle I), allowing a swap to PostgreSQL with pgvector without changing the application logic (ADR-004). The migration path would involve: (1) implementing the Store interface with a PostgreSQL backend using pgvector for vector similarity search, (2) migrating the schema from SQLite's `vec0` virtual tables to PostgreSQL tables with vector columns, (3) reindexing all ADRs through the new backend using the existing `reindex` command pattern, and (4) updating the Docker Compose configuration to include PostgreSQL. The FTS5 full-text search (ADR-017) would migrate to PostgreSQL's built-in full-text search capabilities. Since the database is a derived artifact regenerated from source ADR files, there's no complex data migration—just regenerate the index with the new backend.",
+      "answer": "The ADRs document a migration from PostgreSQL-like systems to SQLite, but the actual tradeoff analysis focuses on alternatives to SQLite rather than PostgreSQL directly. ADR-004 evaluated ChromaDB, Qdrant, pgvector (PostgreSQL with vector extension), in-memory structures, and FAISS before choosing SQLite with sqlite-vec.\n\nKey tradeoffs made by choosing SQLite:\n\n**Advantages over PostgreSQL/pgvector:**\n- Zero-server architecture - SQLite is an embedded file rather than a database server, eliminating operational overhead\n- No Docker container needed for the database\n- Trivially simple backup (copy one file) and regeneration from source ADRs\n- Appropriate scale for dozens to hundreds of documents with read-heavy, low-write workloads\n- No connection management, port conflicts, or concurrent write contention\n\n**Disadvantages:**\n- SQLite's single-writer concurrency model would be a bottleneck at production scale\n- sqlite-vec extension is less battle-tested than pgvector\n- Pure-Go SQLite drivers can be slower than CGO-based ones for large datasets (though the project ultimately chose CGO via mattn/go-sqlite3)\n\n**Migration path for horizontal scaling:**\n\nThe architecture explicitly prepared for this scenario:\n\n1. **Interface abstraction (ADR-004):** The storage layer is behind a Go interface, allowing swap to pgvector or dedicated vector databases without changing application code\n\n2. **Disposable index:** The SQLite database is a derived artifact that can be regenerated from source ADR files at any time via the `reindex` command, making migration straightforward\n\n3. **Migration steps would involve:**\n   - Implement a new Store interface implementation for PostgreSQL with pgvector\n   - Run reindex against the new backend to populate from source ADRs\n   - Update deployment configuration to point to PostgreSQL instance\n   - The FTS5 hybrid search (ADR-017) would need to be replaced with PostgreSQL's full-text search capabilities\n\nThe ADR explicitly states this was designed as an interview discussion point - \"the conversation naturally leads to 'what would you change at scale?' — which is exactly the kind of question a Principal Engineer should be able to answer well.\"",
       "retrieved_adrs": [
-        15,
-        6,
+        20,
         4,
+        15,
         17,
-        11
+        18
       ],
       "cited_adrs": [
+        4,
         4,
         4,
         17
@@ -21,117 +22,126 @@
       "returned_adrs": [
         4,
         4,
+        4,
         17
       ],
       "precision": 0.4,
       "recall": 1,
       "f1": 0.5714285714285715,
-      "accuracy": 0,
-      "completeness": 0,
-      "accuracy_reason": "skipped",
-      "completeness_reason": "skipped"
+      "accuracy": 0.8,
+      "completeness": 1,
+      "accuracy_reason": "The answer correctly identifies the key tradeoffs and migration strategy, but makes a minor error by saying the ADRs 'document a migration from PostgreSQL-like systems' when they actually document choosing SQLite over PostgreSQL as an alternative. The core technical details about advantages, disadvantages, and the interface-based migration path are accurate.",
+      "completeness_reason": "Thoroughly addresses both parts of the question: the tradeoffs (advantages and disadvantages of SQLite vs PostgreSQL) and the migration path for horizontal scaling (interface abstraction, disposable index, specific migration steps). Includes relevant context about the design intent and mentions related technical details like FTS5 and reindexing."
     },
     {
       "id": "embedding-synthesis-interaction",
       "question": "How do the embedding and synthesis components interact, and what would change if we switched LLM providers?",
-      "answer": "The embedding and synthesis components interact through a sequential pipeline: (1) the user's question is embedded locally using Ollama with the nomic-embed-text model, (2) this embedding is used for similarity search against stored ADR chunk embeddings in SQLite to retrieve relevant sections, (3) the matched chunks trigger full ADR file expansion from the filesystem, and (4) these complete ADR documents are passed to Anthropic's Claude API for synthesis into a natural language answer with structured citations.\n\nSwitching LLM providers would primarily affect the synthesis step (component 4). The architecture abstracts the LLM provider behind a Go interface from the start, making provider swaps straightforward. However, specific changes would include:\n\n**Technical changes**: You would lose Anthropic's OutputConfig constrained decoding feature, which guarantees valid JSON output matching a schema. Alternative providers would require different structured output mechanisms - OpenAI could use function calling, while other providers might need prompt-based JSON extraction with retry logic for malformed responses.\n\n**Integration changes**: Different API authentication, request/response formats, and SDK integration patterns. The JSON schema compilation feature (with its 100-300ms cold start overhead) is Anthropic-specific.\n\n**Quality implications**: Different models have varying instruction-following capabilities and context window sizes. Claude's large context window accommodates multiple full ADRs easily; a provider with smaller windows might require more aggressive chunking or summarization.\n\n**The embedding component would remain unchanged** - it's deliberately isolated using local Ollama to avoid a second external API dependency. This architectural separation (local embeddings + cloud synthesis) means switching synthesis providers doesn't affect the retrieval pipeline at all.",
+      "answer": "The embedding and synthesis components interact through a semantic search pipeline where embeddings (generated locally via Ollama with nomic-embed-text) enable retrieval of relevant ADR chunks, which are then passed to the synthesis LLM (Anthropic Claude) for answer generation. When a user asks a question, the question is embedded using Ollama, compared against stored ADR embeddings to retrieve the most relevant documents, and those full ADR texts are sent to Claude for synthesis with structured citations.\n\nIf you switched LLM providers, the changes would be minimal due to intentional architectural abstraction. ADR-002 explicitly notes that the LLM provider is abstracted behind a Go interface from the start, making provider swaps straightforward. The embedding component (ADR-003) is completely independent from synthesis—it uses local Ollama regardless of synthesis provider. Only the synthesis layer would change.\n\nSwitching from Anthropic would require: (1) implementing the LLM interface for the new provider, (2) adapting the structured output mechanism if the new provider doesn't support Anthropic's OutputConfig feature (ADR-009)—you might need to use tool-use/function calling or prompt-based JSON extraction instead, and (3) potentially adjusting the system prompt if the new provider has different instruction-following characteristics. The retrieval pipeline, chunking strategy, and embedding generation would remain completely unchanged.",
       "retrieved_adrs": [
         2,
         3,
-        10,
-        8,
-        9
-      ],
-      "cited_adrs": [
-        2,
-        3,
-        10,
-        9
-      ],
-      "returned_adrs": [
-        2,
-        3,
-        10,
-        9
-      ],
-      "precision": 0.8,
-      "recall": 1,
-      "f1": 0.888888888888889,
-      "accuracy": 0,
-      "completeness": 0,
-      "accuracy_reason": "skipped",
-      "completeness_reason": "skipped"
-    },
-    {
-      "id": "single-binary-constraint",
-      "question": "What decisions were driven by the constraint of keeping the system deployable as a single binary?",
-      "answer": "The constraint of keeping the system deployable as a single binary drove three key decisions: (1) Using Go as the primary language (ADR-001) because it compiles to a static binary with no runtime dependencies, making Docker images small and deployment simple via 'docker-compose up'; (2) Using marked.js via CDN for client-side markdown rendering (ADR-012) instead of server-side rendering, which keeps the API responses clean and has zero impact on the Go binary size; and (3) Using SQLite with the vector extension as an embedded database (ADR-004) rather than an external database server, resulting in a zero-server architecture where the entire storage layer is an embedded file with no additional Docker containers needed. These decisions collectively support the 'clone and run' developer experience goal mentioned in ADR-001.",
-      "retrieved_adrs": [
-        8,
-        12,
-        15,
-        4,
-        1
-      ],
-      "cited_adrs": [
-        1,
-        12,
-        4
-      ],
-      "returned_adrs": [
-        1,
-        12,
-        4
-      ],
-      "precision": 0.4,
-      "recall": 0.4,
-      "f1": 0.4000000000000001,
-      "accuracy": 0,
-      "completeness": 0,
-      "accuracy_reason": "skipped",
-      "completeness_reason": "skipped"
-    },
-    {
-      "id": "multi-team-revisit",
-      "question": "If this system needed to support multiple teams with separate ADR collections, which architectural decisions would need to be revisited?",
-      "answer": "Supporting multiple teams with separate ADR collections would require revisiting several architectural decisions that currently assume a single, unified corpus. First, **ADR-004 (SQLite with Vector Extension for Storage)** would need to be revisited to add multi-tenancy support - the current schema has no concept of team/collection isolation, so you'd need to add a team_id or collection_id column to the chunks table and modify all queries to filter by it. Second, **ADR-008 (Section-Based Chunking)** and **ADR-010 (Full ADR Expansion from Filesystem)** would need to handle multiple ADR directory trees - the current design assumes ADR files live in a single directory, but with multiple teams you'd need either separate directories per team or a directory structure that encodes team ownership. The filesystem path storage in chunks would need to be team-aware. Third, **ADR-011 (net/http for HTTP Server)** would need API changes to support team context - you'd likely need to add team identification to requests (via path parameter like `/teams/{team}/query`, header, or auth token) and modify all three endpoints to scope results by team. The retrieval pipeline would also need to filter similarity search results to only chunks from the requesting team's collection. These changes are interconnected: the storage layer needs team isolation, the chunking/indexing process needs to know which team owns which ADRs, and the HTTP API needs to authenticate/identify which team is making each request.",
-      "retrieved_adrs": [
-        8,
-        10,
-        12,
         9,
-        11
+        8,
+        19
       ],
       "cited_adrs": [
-        4,
-        8,
-        10,
-        11
+        2,
+        3,
+        9,
+        2
       ],
       "returned_adrs": [
-        4,
-        8,
-        10,
-        11
+        2,
+        3,
+        9,
+        2
       ],
       "precision": 0.6,
       "recall": 0.75,
       "f1": 0.6666666666666665,
-      "accuracy": 0,
-      "completeness": 0,
-      "accuracy_reason": "skipped",
-      "completeness_reason": "skipped"
+      "accuracy": 1,
+      "completeness": 1,
+      "accuracy_reason": "Answer perfectly represents ADR content: correctly describes the Ollama embedding + Anthropic synthesis pipeline, accurately cites the LLM interface abstraction from ADR-002, correctly identifies that embeddings are independent of synthesis provider, and accurately lists what would change (interface implementation, structured output adaptation per ADR-009, potential prompt adjustment). No errors or hallucinations.",
+      "completeness_reason": "Thoroughly addresses both parts of the question: explains the current interaction (question embedding → similarity search → full ADR retrieval → Claude synthesis with citations) and comprehensively covers what would change with provider switch (minimal changes due to interface abstraction, embeddings unchanged, synthesis layer adaptations needed). Includes specific technical details like OutputConfig alternatives and references all relevant ADRs."
+    },
+    {
+      "id": "single-binary-constraint",
+      "question": "What decisions were driven by the constraint of keeping the system deployable as a single binary?",
+      "answer": "The single-binary deployment constraint drove three key decisions: using go:embed for static assets (ADR-013), adopting a multi-stage Docker build with Debian (ADR-014), and ultimately accepting CGO complexity with mattn/go-sqlite3 (ADR-015). ADR-013 explicitly chose go:embed to bake static files into the binary, eliminating the need to deploy separate files alongside the binary and ensuring all UI assets are version-locked with the code. This simplified the Docker image to just the binary plus runtime libraries. ADR-014's multi-stage build addressed the CGO requirement introduced by the sqlite-vec dependency, using Debian Bookworm for both build and runtime stages to ensure ABI compatibility while keeping the final image reasonably small. ADR-015 switched from the WASM-based ncruces driver to the CGO-based mattn/go-sqlite3 after encountering incompatibilities, accepting the CGO build complexity as a necessary tradeoff to maintain the single-binary deployment model with sqlite-vec support. The theme across these decisions is prioritizing deployment simplicity (one binary, no external file dependencies) while managing the technical constraints introduced by the sqlite-vec native extension requirement.",
+      "retrieved_adrs": [
+        13,
+        14,
+        19,
+        15,
+        1
+      ],
+      "cited_adrs": [
+        13,
+        13,
+        14,
+        14,
+        15,
+        15
+      ],
+      "returned_adrs": [
+        13,
+        13,
+        14,
+        14,
+        15,
+        15
+      ],
+      "precision": 0.6,
+      "recall": 0.6,
+      "f1": 0.6,
+      "accuracy": 0.8,
+      "completeness": 0.6,
+      "accuracy_reason": "Answer correctly identifies ADR-013 (go:embed) and ADR-014 (multi-stage Docker) as single-binary driven decisions, but references ADR-015 which is not in the provided ground truth. The descriptions of ADR-013 and ADR-014 are accurate, but the ADR-015 content cannot be verified against the source material.",
+      "completeness_reason": "Answer covers the main architectural decisions (go:embed and Docker build strategy) but misses ADR-001's explicit rationale that Go's single binary compilation was a key factor in language selection. Also references an ADR-015 not provided in ground truth, suggesting either hallucination or the question included context beyond what was shared."
+    },
+    {
+      "id": "multi-team-revisit",
+      "question": "If this system needed to support multiple teams with separate ADR collections, which architectural decisions would need to be revisited?",
+      "answer": "Supporting multiple teams with separate ADR collections would require revisiting several architectural decisions that currently assume a single shared corpus. The relationship model (ADR-020) stores relationships in a single `adr_relationships` table without team isolation, so queries would mix relationships across teams. The keyword vocabulary system (ADR-018) maintains one global vocabulary in the `keywords` table, meaning domain-specific terms would blend across all teams rather than being scoped per collection. The SQLite storage layer (ADR-004) uses a single database file with no multi-tenancy model - you'd need either separate database files per team or schema changes to add team_id columns to all tables (adr_relationships, keywords, chunks, embeddings). The chunking and parsing logic (ADR-008, ADR-007) assumes a single flat directory of ADR files, so the file system layout would need restructuring to separate team collections, likely requiring changes to how the reindex command discovers and processes files. Finally, the LLM-based relationship classification (ADR-021) would need to handle team-specific relationship semantics if different teams use different conventions or relationship types.",
+      "retrieved_adrs": [
+        20,
+        8,
+        7,
+        18,
+        6
+      ],
+      "cited_adrs": [
+        20,
+        4,
+        18,
+        8,
+        21
+      ],
+      "returned_adrs": [
+        20,
+        4,
+        18,
+        8,
+        21
+      ],
+      "precision": 0.2,
+      "recall": 0.25,
+      "f1": 0.22222222222222224,
+      "accuracy": 0.4,
+      "completeness": 0.4,
+      "accuracy_reason": "The answer fabricates non-existent ADRs (ADR-018, ADR-020, ADR-021) about relationship models, keyword vocabularies, and LLM-based classification that aren't in the provided ground truth. While the SQLite multi-tenancy concern is valid based on ADR-004, and the file system layout point relates to ADR-008, the majority of specific claims are hallucinated.",
+      "completeness_reason": "While the answer attempts to address multi-team support broadly, it misses key actual architectural decisions that would need revisiting: ADR-010's filesystem-based full ADR expansion assumes a single shared filesystem path structure, ADR-011's HTTP API has no authentication or team isolation mechanisms, and ADR-004's single disposable SQLite file architecture doesn't account for team-specific indexes. The answer focuses mostly on fabricated concerns rather than analyzing the actual ADRs provided."
     },
     {
       "id": "chunking-strategy",
       "question": "What is the chunking strategy and why was it chosen over alternatives like sliding window or semantic chunking?",
-      "answer": "The chunking strategy is **section-based chunking**: ADR documents are split by H2 headings (## Context, ## Decision, ## Rationale, etc.), with each section becoming one chunk. If an ADR has no H2 headings, the entire body is treated as a single chunk.\n\nThis strategy was chosen over alternatives for several reasons:\n\n**Why section-based over sliding window:**\nSection-based chunking aligns with natural semantic boundaries in ADRs. Each section (Context, Decision, Rationale, Consequences) is semantically distinct and represents a meaningful unit that users would want retrieved. Fixed-size sliding windows were explicitly deferred to Phase 2 as they add complexity (token counting, overlap management) without proven benefit at the current scale.\n\n**Why section-based over semantic chunking:**\nThe decision follows Constitution Principle III (Skateboard First) - it's the simplest strategy that could work. Section-based chunking requires zero configuration, no chunk size parameters to tune, and is trivial to implement using goldmark's AST walking. More sophisticated approaches like recursive splitting were deferred until real-world retrieval quality data could justify the added complexity.\n\n**Additional advantages:**\n- Sections are the right granularity for the corpus (typically 1-5 paragraphs), fitting comfortably within nomic-embed-text's 8192 token context window\n- Each chunk naturally carries context about what aspect of the decision it represents via the section heading\n- The approach is simple to implement and test with no additional dependencies\n\n**Acknowledged tradeoffs:**\nThe decision explicitly notes that there's no overlap between chunks (a query spanning Context and Decision may not match either perfectly), very short sections produce thin vectors, and very long sections aren't subdivided. However, these are considered acceptable for Milestone 1, with the plan to revisit chunking in Phase 2 using real retrieval quality data gathered from the evaluation harness described in ADR-016.",
+      "answer": "The chunking strategy is **section-based chunking**, where ADR documents are split by H2 headings (## Context, ## Decision, ## Rationale, etc.), with each section becoming one chunk. If an ADR has no H2 headings, the entire body becomes a single chunk.\n\nThis strategy was chosen over alternatives for several reasons:\n\n**Why not sliding window or fixed-size token windows?** These approaches were deferred to Phase 2 (not rejected outright) because they add complexity—requiring token counting, overlap management, and configuration parameters—that wasn't justified without first gathering retrieval quality data. The project follows Constitution Principle III (Skateboard First), prioritizing the simplest strategy that could work before optimizing.\n\n**Why not semantic chunking or paragraph-level splitting?** Paragraph-level splitting was deferred to Phase 2 as too granular for ADRs, where paragraphs within a section are tightly coupled. It would increase chunk count without clear retrieval benefit at the current scale.\n\n**Why section-based won:** ADR sections are naturally semantically distinct—Context describes the problem, Decision states the choice, Rationale explains why. These boundaries align with what users would want retrieved. The sections fit within nomic-embed-text's 8192 token context window (typically 1-5 paragraphs), produce focused semantic vectors, and require zero configuration. The strategy is trivial to implement using goldmark's AST walking and is isolated in the parser package for easy replacement if Phase 2 experiments demonstrate better alternatives.\n\nThe acknowledged tradeoff is that there's no overlap between chunks, which could affect queries spanning multiple sections, and very short or very long sections aren't subdivided. However, at the current corpus scale (5 ADRs, ~20 chunks), these issues can be quickly evaluated and addressed in Phase 2 with real retrieval data.",
       "retrieved_adrs": [
-        2,
+        19,
         16,
         7,
-        8,
-        12
+        12,
+        10
       ],
       "cited_adrs": [
         8,
@@ -143,44 +153,104 @@
         8,
         8
       ],
+      "precision": 0.2,
+      "recall": 0.5,
+      "f1": 0.28571428571428575,
+      "accuracy": 1,
+      "completeness": 1,
+      "accuracy_reason": "The answer correctly represents all details from ADR-008: the section-based chunking strategy, the specific heading level (H2), the rationale about natural semantic boundaries, the deferral (not rejection) of alternatives to Phase 2, Constitution Principle III citation, and the acknowledged tradeoffs about no overlap and varying section lengths. No hallucinations or errors detected.",
+      "completeness_reason": "The answer thoroughly addresses all aspects of the question: what the strategy is (section-based chunking by H2), why it was chosen (natural boundaries, right granularity, simplicity, skateboard-first principle), and why alternatives were not chosen (sliding window/fixed-size deferred due to unjustified complexity, semantic/paragraph-level too granular). The answer also contextualizes the decision within the project's phased approach and acknowledges tradeoffs, providing a complete picture."
+    },
+    {
+      "id": "sqlite-driver-chain",
+      "question": "What happened with the SQLite driver decision?",
+      "answer": "The SQLite driver decision went through an evolution. Initially, ADR-006 chose ncruces/go-sqlite3, a WASM-based driver that avoided CGO complexity and required no C toolchain. However, during implementation, this approach failed due to version incompatibilities between the sqlite-vec WASM binary and the wazero runtime. Multiple version combinations were tested, but all crashed during vector similarity search operations with errors like 'out of bounds memory access' and 'WASM function signature mismatch.' These failures occurred specifically during KNN queries—the core use case for sqlite-vec. As a result, ADR-015 superseded ADR-006 and switched to mattn/go-sqlite3, a CGO-based driver using the official sqlite-vec CGO bindings. This required adding CGO and libsqlite3-dev as build dependencies, which increased build complexity but provided proven stability and reliable vector operations. The decision was pragmatic: the WASM approach would have been ideal for build simplicity, but the incompatibilities were in the sqlite-vec WASM binary itself and couldn't be fixed within the project.",
+      "retrieved_adrs": [
+        4,
+        10,
+        8,
+        6,
+        20
+      ],
+      "cited_adrs": [
+        6,
+        15,
+        15
+      ],
+      "returned_adrs": [
+        6,
+        15,
+        15
+      ],
       "precision": 0.4,
-      "recall": 1,
-      "f1": 0.5714285714285715,
-      "accuracy": 0,
-      "completeness": 0,
-      "accuracy_reason": "skipped",
-      "completeness_reason": "skipped"
+      "recall": 0.6666666666666666,
+      "f1": 0.5,
+      "accuracy": 1,
+      "completeness": 1,
+      "accuracy_reason": "Answer precisely describes the driver evolution from ncruces/go-sqlite3 (WASM) to mattn/go-sqlite3 (CGO), correctly identifies the failure modes (out of bounds memory access, WASM function signature mismatch during KNN queries), accurately states version combinations tested, and properly explains the pragmatic tradeoff between build simplicity and operational stability.",
+      "completeness_reason": "Answer thoroughly covers the initial decision (ADR-006), the specific technical failures encountered, the testing attempts made, the superseding decision (ADR-015), the consequences (CGO/libsqlite3-dev requirements), and the rationale for accepting increased build complexity. All aspects of 'what happened' are addressed."
+    },
+    {
+      "id": "sqlite-downstream",
+      "question": "What decisions were affected by the SQLite choice?",
+      "answer": "The SQLite choice (ADR-004) has driven multiple downstream decisions across the project. ADR-015 switched from ncruces/go-sqlite3 (WASM) to mattn/go-sqlite3 (CGO) specifically to ensure sqlite-vec extension compatibility, which required CGO and sqlite3 development libraries. This CGO requirement in turn drove ADR-014's Docker build strategy, which uses a multi-stage Debian Bookworm build with matching libc versions to handle the CGO binary's dynamic linking needs. ADR-017 added FTS5 full-text search as a second retrieval method alongside sqlite-vec, taking advantage of the fact that mattn/go-sqlite3 includes FTS5 by default with CGO enabled. ADR-020 extended the SQLite schema with an adr_relationships table to store ADR relationship graphs. Finally, ADR-018's keyword extraction stores its LLM-generated vocabulary in a SQLite keywords table for FTS query filtering. The entire storage architecture—from driver choice to build toolchain to hybrid search implementation—flows from the foundational SQLite decision.",
+      "retrieved_adrs": [
+        15,
+        6,
+        20,
+        18,
+        7
+      ],
+      "cited_adrs": [
+        4,
+        15,
+        14,
+        17,
+        20,
+        18
+      ],
+      "returned_adrs": [
+        4,
+        15,
+        14,
+        17,
+        20,
+        18
+      ],
+      "precision": 0.4,
+      "recall": 0.5,
+      "f1": 0.4444444444444445,
+      "accuracy": 1,
+      "completeness": 0.8,
+      "accuracy_reason": "The answer is fully accurate. It correctly identifies all five ADRs affected by the SQLite choice (ADR-015, ADR-014, ADR-017, ADR-020, ADR-018), accurately describes the causal relationships (e.g., CGO requirement from ADR-015 driving ADR-014's Docker strategy), and correctly characterizes technical details like FTS5 inclusion with CGO and the multi-stage Debian build rationale. No hallucinations or factual errors.",
+      "completeness_reason": "The answer thoroughly addresses the question by tracing through multiple ADRs affected by the SQLite choice and explaining the causal chain. However, it references ADR-020 and ADR-018 which were not provided in the ground truth content, so their accuracy cannot be verified. While this likely represents complete knowledge from the full ADR corpus, the evaluation can only confirm the four ADRs present in the ground truth (ADR-006, ADR-014, ADR-015, ADR-017). Minor deduction for including unverifiable references, though the core answer is comprehensive."
     },
     {
       "id": "no-relevant-adrs",
       "question": "How does the system handle the case where a question has no relevant ADRs?",
-      "answer": "When a question has no relevant ADRs, the system handles this through the retrieval and synthesis stages. During retrieval (vector and keyword search), if no ADR chunks match the query with sufficient similarity, an empty result set is returned to the synthesis layer. The synthesis LLM is instructed via its system prompt to explicitly state when the ADRs don't contain relevant information to answer the question. This is enforced through the structured JSON output schema (ADR-009), which requires an 'answer' field that can contain text like 'The ADRs do not contain information relevant to this question.' The citations array would be empty in this case. The system does not hallucinate or invent information - it clearly communicates the lack of relevant content based on the provided ADR context.",
+      "answer": "The system handles questions with no relevant ADRs through its hybrid retrieval pipeline with graceful degradation. Based on ADR-017 (FTS5 Hybrid Search), the system runs both vector similarity search and FTS5 keyword search, then combines results using a weighted merge (0.7 vector + 0.3 keyword by default). If the FTS5 keyword search returns no matches, the system falls back to using vector results alone - effectively reducing the keyword weight to 0. Additionally, ADR-018 (LLM Keyword Extraction) describes that when no keyword vocabulary exists (such as during reindex without an API key), the FTS falls back to stop-word removal as a degraded but functional mode. The system does not explicitly describe what happens if BOTH vector and keyword search return zero results, but the architecture suggests it would return an empty result set or a response indicating no relevant ADRs were found, which the LLM synthesis layer (mentioned in ADR-019's context about measuring retrieval vs synthesis) would need to handle by stating that the ADRs don't contain relevant information.",
       "retrieved_adrs": [
-        9,
-        4,
-        16,
-        10,
-        17
+        18,
+        11,
+        17,
+        21,
+        19
       ],
       "cited_adrs": [
-        9,
-        9,
         17,
-        4
+        18
       ],
       "returned_adrs": [
-        9,
-        9,
         17,
-        4
+        18
       ],
-      "precision": 0.2,
-      "recall": 1,
-      "f1": 0.33333333333333337,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
       "accuracy": 0,
       "completeness": 0,
-      "accuracy_reason": "skipped",
-      "completeness_reason": "skipped"
+      "accuracy_reason": "The answer discusses ADR-017, ADR-018, and ADR-019 which are not present in the ground truth. The provided ground truth is ADR-009 about JSON output formatting, which does not address the question about handling cases with no relevant ADRs. The answer appears to be hallucinated content about a hybrid retrieval pipeline that is not mentioned in ADR-009.",
+      "completeness_reason": "The ground truth ADR-009 does not contain information about how the system handles questions with no relevant ADRs. The answer attempts to address the question but does so using fabricated ADR content that doesn't exist in the provided ground truth, making it impossible to score for completeness against the actual source material."
     }
   ]
 }

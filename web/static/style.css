@@ -358,6 +358,38 @@ main {
   border-radius: 4px;
 }
 
+/* ADR Relationships */
+.adr-relationships {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
+}
+.adr-relationships h3 {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+  color: #2c3e50;
+}
+.adr-relationships h4 {
+  font-size: 0.9rem;
+  color: #7f8c8d;
+  margin: 0.5rem 0 0.25rem;
+}
+.adr-relationships ul {
+  list-style: none;
+  padding-left: 0;
+}
+.adr-relationships li {
+  margin: 0.25rem 0;
+}
+.rel-link {
+  color: #2980b9;
+  text-decoration: none;
+  cursor: pointer;
+}
+.rel-link:hover {
+  text-decoration: underline;
+}
+
 /* Noscript */
 .noscript-msg {
   padding: 2rem;

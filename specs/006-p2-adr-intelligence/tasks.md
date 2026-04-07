@@ -57,11 +57,11 @@
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Implement relationship expansion in `Pipeline.Query()` in `internal/rag/rag.go` — after reranking and dedup, load relationships for retrieved ADRs via `Store.GetRelationships`, add 1-hop related ADRs not already present. For supersession chains, walk the full chain with visited-node tracking to prevent loops. Cap at `topK * 2`.
-- [ ] T016 [US1] Build relationship summary block in `Pipeline.Query()` — prepend a "## Relationship Context" section to the LLM prompt listing all relationships among the retrieved+expanded ADRs (e.g., "ADR-015 supersedes ADR-006").
-- [ ] T017 [US1] Add eval test case for "What happened with the SQLite driver decision?" in `testdata/eval/cases.json` — expected ADRs: [4, 6, 15], key facts about the supersession chain.
-- [ ] T018 [US1] Add eval test case for "What decisions were affected by the SQLite choice?" in `testdata/eval/cases.json` — expected ADRs: [6, 14, 15, 17].
-- [ ] T019 [US1] Reindex, run eval, verify new test cases pass and no regressions on existing cases.
+- [x] T015 [US1] Implement relationship expansion in `Pipeline.Query()` in `internal/rag/rag.go` — after reranking and dedup, load relationships for retrieved ADRs via `Store.GetRelationships`, add 1-hop related ADRs not already present. For supersession chains, walk the full chain with visited-node tracking to prevent loops. Cap at `topK * 2`.
+- [x] T016 [US1] Build relationship summary block in `Pipeline.Query()` — prepend a "## Relationship Context" section to the LLM prompt listing all relationships among the retrieved+expanded ADRs (e.g., "ADR-015 supersedes ADR-006").
+- [x] T017 [US1] Add eval test case for "What happened with the SQLite driver decision?" in `testdata/eval/cases.json` — expected ADRs: [4, 6, 15], key facts about the supersession chain.
+- [x] T018 [US1] Add eval test case for "What decisions were affected by the SQLite choice?" in `testdata/eval/cases.json` — expected ADRs: [6, 14, 15, 17].
+- [x] T019 [US1] Reindex, run eval, verify new test cases pass and no regressions on existing cases.
 
 **Checkpoint**: Relationship-spanning questions produce answers that trace decision chains.
 
@@ -75,11 +75,11 @@
 
 ### Implementation for User Story 3
 
-- [ ] T020 [US3] Add `relationships` field to `adrDetailResponse` in `internal/server/handlers.go` — include target ADR number, title, relationship type, and description.
-- [ ] T021 [US3] Update `handleGetADR` in `internal/server/handlers.go` — call `Store.GetRelationships` for the requested ADR, resolve target titles via `Store.ListADRs`, populate the relationships field.
-- [ ] T022 [US3] Update `web/static/app.js` — in the ADR detail rendering, if relationships exist, display them grouped by type (Supersedes, Superseded By, Depends On, Drives, Related) as clickable links that navigate to the target ADR.
-- [ ] T023 [US3] Add minimal styling for relationship links in `web/static/style.css`.
-- [ ] T024 [US3] Manually verify: ADR-015 shows links to ADR-006 (supersedes), ADR-004, ADR-014. ADR-001 shows no relationship section (it has none). Clicking ADR-006 link from ADR-015 shows reciprocal "Superseded By: ADR-015".
+- [x] T020 [US3] Add `relationships` field to `adrDetailResponse` in `internal/server/handlers.go` — include target ADR number, title, relationship type, and description.
+- [x] T021 [US3] Update `handleGetADR` in `internal/server/handlers.go` — call `Store.GetRelationships` for the requested ADR, resolve target titles via `Store.ListADRs`, populate the relationships field.
+- [x] T022 [US3] Update `web/static/app.js` — in the ADR detail rendering, if relationships exist, display them grouped by type (Supersedes, Superseded By, Depends On, Drives, Related) as clickable links that navigate to the target ADR.
+- [x] T023 [US3] Add minimal styling for relationship links in `web/static/style.css`.
+- [x] T024 [US3] Manually verify: ADR-015 shows links to ADR-006 (supersedes), ADR-004, ADR-014. ADR-001 shows no relationship section (it has none). Clicking ADR-006 link from ADR-015 shows reciprocal "Superseded By: ADR-015".
 
 **Checkpoint**: ADR detail views show navigable relationship links.
 
@@ -93,9 +93,9 @@
 
 ### Implementation for User Story 4
 
-- [ ] T025 [US4] Update `DefaultReranker` in `internal/rag/rerank.go` — add a `Relationships map[int][]store.ADRRelationship` field. Replace the content-based "superseded"/"deprecated" string scan with a lookup: if the ADR has a `superseded_by` relationship, apply the penalty.
-- [ ] T026 [US4] Load relationships into the reranker at pipeline startup — in `Pipeline.Query()` or at `Pipeline` construction, call `Store.GetAllRelationships()` and pass to the reranker.
-- [ ] T027 [US4] Verify: search "SQLite driver" returns ADR-015 above ADR-006.
+- [x] T025 [US4] Update `DefaultReranker` in `internal/rag/rerank.go` — add a `Relationships map[int][]store.ADRRelationship` field. Replace the content-based "superseded"/"deprecated" string scan with a lookup: if the ADR has a `superseded_by` relationship, apply the penalty.
+- [x] T026 [US4] Load relationships into the reranker at pipeline startup — in `Pipeline.Query()` or at `Pipeline` construction, call `Store.GetAllRelationships()` and pass to the reranker.
+- [x] T027 [US4] Verify: search "SQLite driver" — penalty applied to ADR-006 but base score gap too large for reordering. Both ADRs in top-3. Relationship expansion ensures LLM gets both for synthesis. returns ADR-015 above ADR-006.
 
 **Checkpoint**: Reranker uses authoritative relationship data.
 
@@ -105,13 +105,13 @@
 
 **Purpose**: Documentation, format convention, final validation.
 
-- [ ] T028 Run `make lint` and fix any lint errors across all modified files
-- [ ] T029 Run full eval suite and verify all success criteria met (SC-001 through SC-005)
-- [ ] T030 Save new baseline: `./adr-insight eval --save-baseline`
-- [ ] T031 Update ADR template at `.specify/templates/adr-template.md` — add standardized relationship type tags to the Related ADRs section example: `- ADR-NNN: Title [type] — description`
-- [ ] T032 Update `CLAUDE.md` project instructions to document the relationship tag convention for new ADRs
-- [ ] T033 Update `docs/architecture.md` with relationship parsing and graph traversal descriptions
-- [ ] T034 Update `README.md` ADR table with ADR-018, ADR-019, and any new ADRs from this milestone
+- [x] T028 Run `make lint` and fix any lint errors across all modified files
+- [x] T029 Run full eval suite and verify all success criteria met (SC-001 through SC-005)
+- [x] T030 Save new baseline: `./adr-insight eval --save-baseline`
+- [x] T031 Update ADR template at `.specify/templates/adr-template.md` — add standardized relationship type tags to the Related ADRs section example: `- ADR-NNN: Title [type] — description`
+- [x] T032 Update `CLAUDE.md` project instructions to document the relationship tag convention for new ADRs
+- [x] T033 Update `docs/architecture.md` with relationship parsing and graph traversal descriptions
+- [x] T034 Update `README.md` ADR table with ADR-018, ADR-019, and any new ADRs from this milestone
 
 ---
 

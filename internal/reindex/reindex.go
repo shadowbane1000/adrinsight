@@ -20,12 +20,18 @@ type KeywordExtractor interface {
 	ExtractKeywords(ctx context.Context, title, body string) ([]string, error)
 }
 
+// RelationshipClassifier classifies the type of a relationship from natural language.
+type RelationshipClassifier interface {
+	ClassifyRelationship(ctx context.Context, sourceTitle, bulletText string) (string, error)
+}
+
 // Reindexer orchestrates the parse → embed → store pipeline.
 type Reindexer struct {
 	Parser    parser.Parser
 	Embedder  embedder.Embedder
 	Store     store.Store
 	ChunkFn   ChunkFunc        // optional override; defaults to Parser.ChunkADR
+	RelClassifier RelationshipClassifier // optional; classifies relationship types via LLM
 	Keywords  KeywordExtractor // optional; extracts search keywords from ADRs
 }
 
@@ -124,6 +130,34 @@ func (r *Reindexer) Run(ctx context.Context, adrDir string) (*Result, error) {
 				log.Printf("Warning: failed to store keywords: %v", err)
 			} else {
 				log.Printf("Stored %d keywords", len(allKeywords))
+			}
+		}
+	}
+
+	// Extract and store relationships if a classifier is available.
+	if r.RelClassifier != nil {
+		log.Println("Classifying ADR relationships...")
+		var allRels []store.ADRRelationship
+		for _, adr := range adrs {
+			for _, raw := range adr.RelatedADRs {
+				relType, err := r.RelClassifier.ClassifyRelationship(ctx, adr.Title, raw.Description)
+				if err != nil {
+					log.Printf("Warning: relationship classification failed for ADR-%03d → ADR-%03d: %v", adr.Number, raw.TargetADR, err)
+					relType = store.RelRelatedTo
+				}
+				allRels = append(allRels, store.ADRRelationship{
+					SourceADR:   adr.Number,
+					TargetADR:   raw.TargetADR,
+					RelType:     relType,
+					Description: raw.Description,
+				})
+			}
+		}
+		if len(allRels) > 0 {
+			if err := r.Store.StoreRelationships(ctx, allRels); err != nil {
+				log.Printf("Warning: failed to store relationships: %v", err)
+			} else {
+				log.Printf("Stored %d relationships", len(allRels))
 			}
 		}
 	}

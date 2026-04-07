@@ -80,6 +80,15 @@ func (m *mockStore) SearchFTS(_ context.Context, _ string, _ int) ([]store.Searc
 func (m *mockStore) HybridSearch(_ context.Context, _ []float32, _ string, _ int, _, _ float64) ([]store.SearchResult, error) {
 	return nil, nil
 }
+func (m *mockStore) StoreRelationships(_ context.Context, _ []store.ADRRelationship) error {
+	return nil
+}
+func (m *mockStore) GetRelationships(_ context.Context, _ int) ([]store.ADRRelationship, error) {
+	return nil, nil
+}
+func (m *mockStore) GetAllRelationships(_ context.Context) ([]store.ADRRelationship, error) {
+	return nil, nil
+}
 
 func TestReindexerRun(t *testing.T) {
 	mp := &mockParser{

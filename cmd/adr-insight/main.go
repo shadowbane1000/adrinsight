@@ -68,9 +68,11 @@ func cmdReindex(args []string) {
 
 	r := &reindex.Reindexer{Parser: p, Embedder: emb, Store: st}
 
-	// Use Anthropic for keyword extraction if API key is available.
+	// Use Anthropic for keyword extraction and relationship classification if API key is available.
 	if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" {
-		r.Keywords = llm.NewAnthropicLLM(apiKey, "")
+		l := llm.NewAnthropicLLM(apiKey, "")
+		r.Keywords = l
+		r.RelClassifier = l
 	}
 
 	switch *chunkStrategy {

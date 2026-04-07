@@ -61,6 +61,8 @@ Tyler is learning Go through this project. He's an expert in C#/C++/Java/Python.
 - JSON files for test cases, baselines, and results (004-p2-eval-harness)
 - Go 1.24+ (same as M1-M4a) (005-p2-retrieval-improvements)
 - SQLite with sqlite-vec + FTS5 virtual tables (005-p2-retrieval-improvements)
+- Go 1.24+ (same as M1-M4b) + mattn/go-sqlite3 (CGO), sqlite-vec, Anthropic Go SDK, Ollama (006-p2-adr-intelligence)
+- SQLite with sqlite-vec + FTS5 + new `adr_relationships` table (006-p2-adr-intelligence)
 
 ## Recent Changes
 - 001-p1-foundation: Added Go 1.22+

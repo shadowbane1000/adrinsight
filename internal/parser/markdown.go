@@ -13,7 +13,11 @@ import (
 	"github.com/yuin/goldmark/text"
 )
 
-var adrFilePattern = regexp.MustCompile(`(?i)^ADR-(\d+).*\.md$`)
+var (
+	adrFilePattern = regexp.MustCompile(`(?i)^ADR-(\d+).*\.md$`)
+	reADRRef       = regexp.MustCompile(`ADR-(\d+)`)
+	reSupersededBy = regexp.MustCompile(`(?i)superseded\s+by\s+ADR-(\d+)`)
+)
 
 // MarkdownParser parses ADR files using goldmark.
 type MarkdownParser struct{}
@@ -95,6 +99,18 @@ func (p *MarkdownParser) parseFile(path string, number int) (ADR, error) {
 	body := string(src[bodyStart:])
 	adr.Body = body
 	p.extractMetadata(&adr, body)
+	adr.RelatedADRs = p.parseRelatedADRs(src, doc)
+
+	// Also extract supersession from Status field.
+	if m := reSupersededBy.FindStringSubmatch(adr.Status); m != nil {
+		num, _ := strconv.Atoi(m[1])
+		if num > 0 {
+			adr.RelatedADRs = append(adr.RelatedADRs, RawRelationship{
+				TargetADR:   num,
+				Description: "superseded by ADR-" + m[1],
+			})
+		}
+	}
 
 	return adr, nil
 }
@@ -114,6 +130,64 @@ func (p *MarkdownParser) extractMetadata(adr *ADR, body string) {
 			adr.Deciders = kv
 		}
 	}
+}
+
+// parseRelatedADRs extracts relationship references from the "Related ADRs" H2 section.
+func (p *MarkdownParser) parseRelatedADRs(src []byte, doc ast.Node) []RawRelationship {
+	// Find the "Related ADRs" section boundaries.
+	var sectionStart, sectionEnd int
+	var found bool
+	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		h, ok := n.(*ast.Heading)
+		if !ok || h.Level != 2 {
+			return ast.WalkContinue, nil
+		}
+		title := headingText(h, src)
+		if strings.EqualFold(strings.TrimSpace(title), "Related ADRs") {
+			found = true
+			// Section content starts after the heading.
+			if h.NextSibling() != nil && h.NextSibling().Lines().Len() > 0 {
+				sectionStart = h.NextSibling().Lines().At(0).Start
+			}
+			sectionEnd = len(src)
+		} else if found && sectionEnd == len(src) {
+			// Next H2 — close the section.
+			if h.Lines().Len() > 0 {
+				sectionEnd = h.Lines().At(0).Start
+			}
+		}
+		return ast.WalkContinue, nil
+	})
+
+	if !found {
+		return nil
+	}
+
+	// Parse bullets from the section content.
+	sectionText := string(src[sectionStart:sectionEnd])
+	var rels []RawRelationship
+	for _, line := range strings.Split(sectionText, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "- ") && !strings.HasPrefix(line, "* ") {
+			continue
+		}
+		bullet := strings.TrimPrefix(strings.TrimPrefix(line, "- "), "* ")
+		m := reADRRef.FindStringSubmatch(bullet)
+		if m == nil {
+			continue
+		}
+		num, _ := strconv.Atoi(m[1])
+		if num > 0 {
+			rels = append(rels, RawRelationship{
+				TargetADR:   num,
+				Description: bullet,
+			})
+		}
+	}
+	return rels
 }
 
 func extractKV(line, key string) string {

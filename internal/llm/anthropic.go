@@ -160,5 +160,45 @@ func (a *AnthropicLLM) ExtractKeywords(ctx context.Context, title, body string) 
 	return keywords, nil
 }
 
+const classifyPrompt = `Classify the relationship between these two ADRs.
+
+Source ADR: "%s"
+Related ADR bullet: "%s"
+
+Respond with exactly one of: supersedes, superseded_by, depends_on, drives, related_to`
+
+// ClassifyRelationship uses the LLM to classify a relationship type from natural language.
+func (a *AnthropicLLM) ClassifyRelationship(ctx context.Context, sourceTitle, bulletText string) (string, error) {
+	resp, err := a.client.Messages.New(ctx, anthropic.MessageNewParams{
+		Model:     anthropic.ModelClaudeHaiku4_5_20251001,
+		MaxTokens: 32,
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock(fmt.Sprintf(classifyPrompt, sourceTitle, bulletText))),
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("classify relationship: %w", err)
+	}
+
+	if len(resp.Content) == 0 {
+		return "", fmt.Errorf("empty response")
+	}
+
+	result := strings.TrimSpace(strings.ToLower(resp.Content[0].Text))
+	// Validate against known types.
+	switch result {
+	case "supersedes", "superseded_by", "depends_on", "drives", "related_to":
+		return result, nil
+	default:
+		// Try to extract a valid type from a longer response.
+		for _, t := range []string{"supersedes", "superseded_by", "depends_on", "drives", "related_to"} {
+			if strings.Contains(result, t) {
+				return t, nil
+			}
+		}
+		return "related_to", nil // safe fallback
+	}
+}
+
 // Verify AnthropicLLM implements LLM.
 var _ LLM = (*AnthropicLLM)(nil)

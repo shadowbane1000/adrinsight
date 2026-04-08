@@ -70,7 +70,7 @@ func (a *AnthropicLLM) Synthesize(ctx context.Context, query string, adrContents
 
 	// Extract the text content from the response.
 	if len(resp.Content) == 0 {
-		return QueryResponse{}, fmt.Errorf("empty response from anthropic")
+		return QueryResponse{}, fmt.Errorf("empty response from Anthropic API (no content blocks)")
 	}
 
 	var result QueryResponse
@@ -83,7 +83,7 @@ func (a *AnthropicLLM) Synthesize(ctx context.Context, query string, adrContents
 		}
 	}
 
-	return QueryResponse{}, fmt.Errorf("no text content in anthropic response")
+	return QueryResponse{}, fmt.Errorf("no text content in Anthropic response (unexpected content types)")
 }
 
 func outputSchema() map[string]any {
@@ -143,14 +143,14 @@ func (a *AnthropicLLM) ExtractKeywords(ctx context.Context, title, body string) 
 	}
 
 	if len(resp.Content) == 0 {
-		return nil, fmt.Errorf("empty response")
+		return nil, fmt.Errorf("keyword extraction: empty response from Anthropic API")
 	}
 
 	text := resp.Content[0].Text
 	start := strings.Index(text, "[")
 	end := strings.LastIndex(text, "]")
 	if start == -1 || end == -1 || end <= start {
-		return nil, fmt.Errorf("no JSON array in response: %s", text)
+		return nil, fmt.Errorf("keyword extraction: no JSON array in response: %q", text)
 	}
 
 	var keywords []string
@@ -181,7 +181,7 @@ func (a *AnthropicLLM) ClassifyRelationship(ctx context.Context, sourceTitle, bu
 	}
 
 	if len(resp.Content) == 0 {
-		return "", fmt.Errorf("empty response")
+		return "", fmt.Errorf("classify relationship: empty response from Anthropic API")
 	}
 
 	result := strings.TrimSpace(strings.ToLower(resp.Content[0].Text))

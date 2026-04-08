@@ -1,9 +1,10 @@
+// Package rag implements the retrieval-augmented generation pipeline.
 package rag
 
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -37,7 +38,7 @@ func (p *Pipeline) Query(ctx context.Context, question string) (llm.QueryRespons
 		return llm.QueryResponse{}, fmt.Errorf("embedding query: %w", err)
 	}
 	if len(vecs) == 0 {
-		return llm.QueryResponse{}, fmt.Errorf("no embedding returned for query")
+		return llm.QueryResponse{}, fmt.Errorf("no embedding returned for query (embedder returned empty result)")
 	}
 
 	// 2. Search for relevant chunks (hybrid: vector + keyword).
@@ -93,7 +94,7 @@ func (p *Pipeline) Query(ctx context.Context, question string) (llm.QueryRespons
 	for _, adr := range adrs {
 		content, err := os.ReadFile(adr.path)
 		if err != nil {
-			log.Printf("Warning: could not read ADR file %s: %v", adr.path, err)
+			slog.Warn("could not read ADR file", "path", adr.path, "error", err)
 			continue
 		}
 		adrContexts = append(adrContexts, llm.ADRContext{

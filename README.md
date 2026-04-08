@@ -80,6 +80,23 @@ Open [http://localhost:8081](http://localhost:8081).
 | `--save-baseline` | `false` | Save results as new baseline (eval only) |
 | `--delta` | `0.2` | Max per-question score drop (eval only) |
 
+### Environment Variables
+
+All settings can be configured via environment variables. Flags take precedence when both are set.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `8081` | HTTP server port |
+| `DB_PATH` | `./adr-insight.db` | SQLite database file path |
+| `ADR_DIR` | `./docs/adr` | ADR markdown files directory |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama API base URL |
+| `ANTHROPIC_API_KEY` | (none) | Anthropic API key (required for queries) |
+| `EMBED_MODEL` | `nomic-embed-text` | Ollama embedding model name |
+| `LOG_LEVEL` | `info` | Log level: debug, info, warn, error |
+| `LOG_FORMAT` | `json` | Log output format: json, text |
+| `SLOW_REQUEST_MS` | `2000` | Threshold (ms) for slow request warnings |
+| `SHUTDOWN_TIMEOUT_S` | `10` | Graceful shutdown drain timeout (seconds) |
+
 ### Quality Checks
 
 ```bash
@@ -132,6 +149,7 @@ This project's own [Architecture Decision Records](docs/adr/) serve as both docu
 | [ADR-021](docs/adr/ADR-021-llm-relationship-classification.md) | LLM Relationship Classification |
 | [ADR-022](docs/adr/ADR-022-chunking-strategy-validated.md) | Chunking Strategy Validated in Phase 2 |
 | [ADR-023](docs/adr/ADR-023-alpine-js-reactive-ui.md) | Alpine.js for Reactive UI |
+| [ADR-024](docs/adr/ADR-024-slog-structured-logging.md) | slog Structured Logging |
 
 ## Author
 

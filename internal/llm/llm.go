@@ -1,3 +1,4 @@
+// Package llm provides LLM synthesis and classification via Anthropic Claude.
 package llm
 
 import "context"

@@ -58,6 +58,7 @@ adr-insight/
 │   └── adr-insight/
 │       └── main.go              # entrypoint
 ├── internal/
+│   ├── config/                  # centralized configuration from env vars
 │   ├── parser/                  # ADR markdown parsing
 │   ├── embedder/                # embedding interface + Ollama impl
 │   ├── store/                   # SQLite + sqlite-vec storage
@@ -147,3 +148,15 @@ swappable without changing callers (see ADR-001, Constitution Principle I).
   `adr_relationships` table. Used for retrieval expansion (co-retrieve
   related ADRs), synthesis context (relationship summary for the LLM),
   reranker penalties, and UI navigation links. See ADR-020, ADR-021.
+- **Structured logging** via Go stdlib `log/slog` — JSON output by default,
+  text for development. Request ID tracing and timing via HTTP middleware.
+  Configurable log level and format via environment variables. See ADR-024.
+- **Centralized configuration** — all settings loaded from environment
+  variables into a `Config` struct at startup. No scattered `os.Getenv` calls.
+- **Health check** — `GET /health` verifies database, Ollama, and API key
+  status. Returns per-component health with degraded/unhealthy distinction.
+  Used by Docker health checks.
+- **Graceful shutdown** — SIGTERM/SIGINT triggers clean drain of in-flight
+  requests via `http.Server.Shutdown`, with configurable timeout.
+- **API documentation** — all HTTP endpoints documented in `docs/api.md`
+  with request/response examples.

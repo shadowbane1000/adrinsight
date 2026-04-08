@@ -1,3 +1,4 @@
+// Package parser provides ADR markdown parsing and chunking.
 package parser
 
 // ADR represents a parsed Architecture Decision Record.

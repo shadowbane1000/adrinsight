@@ -3,7 +3,7 @@ package reindex
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/shadowbane1000/adrinsight/internal/embedder"
 	"github.com/shadowbane1000/adrinsight/internal/parser"
@@ -27,12 +27,12 @@ type RelationshipClassifier interface {
 
 // Reindexer orchestrates the parse → embed → store pipeline.
 type Reindexer struct {
-	Parser    parser.Parser
-	Embedder  embedder.Embedder
-	Store     store.Store
-	ChunkFn   ChunkFunc        // optional override; defaults to Parser.ChunkADR
+	Parser        parser.Parser
+	Embedder      embedder.Embedder
+	Store         store.Store
+	ChunkFn       ChunkFunc              // optional override; defaults to Parser.ChunkADR
 	RelClassifier RelationshipClassifier // optional; classifies relationship types via LLM
-	Keywords  KeywordExtractor // optional; extracts search keywords from ADRs
+	Keywords      KeywordExtractor       // optional; extracts search keywords from ADRs
 }
 
 // Result holds summary information about a reindex run.
@@ -47,9 +47,8 @@ func (r *Reindexer) Run(ctx context.Context, adrDir string) (*Result, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parsing ADRs: %w", err)
 	}
-	log.Printf("Parsed %d ADRs from %s", len(adrs), adrDir)
+	slog.Info("parsed ADRs", "count", len(adrs), "dir", adrDir)
 
-	// Chunk all ADRs.
 	chunkFn := r.ChunkFn
 	if chunkFn == nil {
 		chunkFn = r.Parser.ChunkADR
@@ -58,30 +57,26 @@ func (r *Reindexer) Run(ctx context.Context, adrDir string) (*Result, error) {
 	for _, adr := range adrs {
 		chunks = append(chunks, chunkFn(adr)...)
 	}
-	log.Printf("Generated %d chunks", len(chunks))
+	slog.Info("generated chunks", "count", len(chunks))
 
 	if len(chunks) == 0 {
-		// Reset the store even with no chunks.
 		if err := r.Store.Reset(ctx); err != nil {
 			return nil, fmt.Errorf("resetting store: %w", err)
 		}
 		return &Result{ADRCount: len(adrs), ChunkCount: 0}, nil
 	}
 
-	// Build ADR lookup map for title prefixing and store records.
 	adrByNum := make(map[int]parser.ADR, len(adrs))
 	for _, adr := range adrs {
 		adrByNum[adr.Number] = adr
 	}
 
-	// Prepare texts for embedding with search_document prefix.
 	texts := make([]string, len(chunks))
 	for i, c := range chunks {
 		texts[i] = docPrefix + c.Content
 	}
 
-	// Embed all chunks.
-	log.Printf("Embedding %d chunks via Ollama...", len(chunks))
+	slog.Info("embedding chunks", "count", len(chunks))
 	embeddings, err := r.Embedder.Embed(ctx, texts)
 	if err != nil {
 		return nil, fmt.Errorf("embedding chunks: %w", err)
@@ -104,45 +99,43 @@ func (r *Reindexer) Run(ctx context.Context, adrDir string) (*Result, error) {
 		}
 	}
 
-	// Reset and store.
 	if err := r.Store.Reset(ctx); err != nil {
 		return nil, fmt.Errorf("resetting store: %w", err)
 	}
-	log.Printf("Storing %d chunks...", len(records))
+	slog.Info("storing chunks", "count", len(records))
 	if err := r.Store.StoreChunks(ctx, records); err != nil {
 		return nil, fmt.Errorf("storing chunks: %w", err)
 	}
 
-	// Extract and store keywords if a keyword extractor is available.
 	if r.Keywords != nil {
-		log.Println("Extracting keywords from ADRs...")
+		slog.Info("extracting keywords from ADRs")
 		var allKeywords []string
 		for _, adr := range adrs {
 			kw, err := r.Keywords.ExtractKeywords(ctx, adr.Title, adr.Body)
 			if err != nil {
-				log.Printf("Warning: keyword extraction failed for ADR-%03d: %v", adr.Number, err)
+				slog.Warn("keyword extraction failed", "adr", adr.Number, "error", err)
 				continue
 			}
 			allKeywords = append(allKeywords, kw...)
 		}
 		if len(allKeywords) > 0 {
 			if err := r.Store.StoreKeywords(ctx, allKeywords); err != nil {
-				log.Printf("Warning: failed to store keywords: %v", err)
+				slog.Warn("failed to store keywords", "error", err)
 			} else {
-				log.Printf("Stored %d keywords", len(allKeywords))
+				slog.Info("stored keywords", "count", len(allKeywords))
 			}
 		}
 	}
 
-	// Extract and store relationships if a classifier is available.
 	if r.RelClassifier != nil {
-		log.Println("Classifying ADR relationships...")
+		slog.Info("classifying ADR relationships")
 		var allRels []store.ADRRelationship
 		for _, adr := range adrs {
 			for _, raw := range adr.RelatedADRs {
 				relType, err := r.RelClassifier.ClassifyRelationship(ctx, adr.Title, raw.Description)
 				if err != nil {
-					log.Printf("Warning: relationship classification failed for ADR-%03d → ADR-%03d: %v", adr.Number, raw.TargetADR, err)
+					slog.Warn("relationship classification failed",
+						"source_adr", adr.Number, "target_adr", raw.TargetADR, "error", err)
 					relType = store.RelRelatedTo
 				}
 				allRels = append(allRels, store.ADRRelationship{
@@ -155,9 +148,9 @@ func (r *Reindexer) Run(ctx context.Context, adrDir string) (*Result, error) {
 		}
 		if len(allRels) > 0 {
 			if err := r.Store.StoreRelationships(ctx, allRels); err != nil {
-				log.Printf("Warning: failed to store relationships: %v", err)
+				slog.Warn("failed to store relationships", "error", err)
 			} else {
-				log.Printf("Stored %d relationships", len(allRels))
+				slog.Info("stored relationships", "count", len(allRels))
 			}
 		}
 	}

@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type queryRequest struct {
@@ -196,6 +197,67 @@ func extractDate(content string) string {
 		}
 	}
 	return ""
+}
+
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	type componentStatus struct {
+		Status string `json:"status"`
+		Error  string `json:"error,omitempty"`
+	}
+	type healthResponse struct {
+		Status     string                     `json:"status"`
+		Components map[string]componentStatus `json:"components"`
+	}
+
+	components := make(map[string]componentStatus)
+
+	// Check database
+	dbStatus := componentStatus{Status: "healthy"}
+	if _, err := s.Store.IsEmpty(r.Context()); err != nil {
+		dbStatus = componentStatus{Status: "unhealthy", Error: err.Error()}
+	}
+	components["database"] = dbStatus
+
+	// Check Ollama
+	ollamaStatus := componentStatus{Status: "healthy"}
+	if s.OllamaURL != "" {
+		client := &http.Client{Timeout: 3 * time.Second}
+		resp, err := client.Head(s.OllamaURL)
+		if err != nil {
+			ollamaStatus = componentStatus{Status: "unhealthy", Error: err.Error()}
+		} else {
+			_ = resp.Body.Close()
+		}
+	}
+	components["ollama"] = ollamaStatus
+
+	// Check Anthropic key
+	keyStatus := componentStatus{Status: "healthy"}
+	if s.Pipeline == nil {
+		keyStatus = componentStatus{Status: "unhealthy", Error: "ANTHROPIC_API_KEY not set"}
+	}
+	components["anthropic_key"] = keyStatus
+
+	// Determine overall status
+	overall := "healthy"
+	for name, c := range components {
+		if c.Status == "unhealthy" {
+			if name == "database" {
+				overall = "unhealthy"
+				break
+			}
+			if overall != "unhealthy" {
+				overall = "degraded"
+			}
+		}
+	}
+
+	code := http.StatusOK
+	if overall == "unhealthy" {
+		code = http.StatusServiceUnavailable
+	}
+
+	writeJSON(w, code, healthResponse{Status: overall, Components: components})
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

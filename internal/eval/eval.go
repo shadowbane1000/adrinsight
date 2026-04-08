@@ -1,10 +1,11 @@
+// Package eval provides an evaluation harness for measuring answer quality.
 package eval
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
@@ -105,7 +106,7 @@ func RunEval(ctx context.Context, cases []TestCase, pipeline *rag.Pipeline, judg
 	}
 
 	for i, tc := range cases {
-		log.Printf("Evaluating [%d/%d]: %s", i+1, len(cases), tc.ID)
+		slog.Info("evaluating", "progress", fmt.Sprintf("%d/%d", i+1, len(cases)), "case", tc.ID)
 
 		// Per-question timeout: 2 minutes for embedding + retrieval + synthesis + judge.
 		qCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
@@ -114,7 +115,7 @@ func RunEval(ctx context.Context, cases []TestCase, pipeline *rag.Pipeline, judg
 		resp, err := pipeline.Query(qCtx, tc.Question)
 		if err != nil {
 			cancel()
-			log.Printf("Warning: query failed for %q: %v (skipping)", tc.ID, err)
+			slog.Warn("query failed, skipping", "case", tc.ID, "error", err)
 			continue
 		}
 
@@ -133,7 +134,7 @@ func RunEval(ctx context.Context, cases []TestCase, pipeline *rag.Pipeline, judg
 			adrContent := loadExpectedADRContent(tc.ExpectedADRs, adrDir)
 			jr, err = judge.Score(qCtx, tc.Question, adrContent, resp.Answer)
 			if err != nil {
-				log.Printf("Warning: judge scoring failed for %q: %v (using 0 scores)", tc.ID, err)
+				slog.Warn("judge scoring failed, using zero scores", "case", tc.ID, "error", err)
 				jr = JudgeResult{
 					AccuracyReason:     "Judge scoring failed",
 					CompletenessReason: "Judge scoring failed",

@@ -51,6 +51,28 @@ jobs:
       - name: Build Docker image
         run: docker build -t adrinsight:latest .
 
+      - name: Pre-build database
+        run: |
+          # Start Ollama, pull model, run reindex in CI to produce a ready-to-serve DB
+          docker run -d --name ollama ollama/ollama
+          echo "Waiting for Ollama..."
+          for i in $(seq 1 30); do
+            if docker exec ollama ollama list >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+          docker exec ollama ollama pull nomic-embed-text
+          docker run --rm \
+            --link ollama:ollama \
+            -v "$PWD/docs/adr:/data/adr:ro" \
+            -v /tmp/db:/data \
+            adrinsight:latest \
+            ./adr-insight reindex --adr-dir /data/adr --db /data/adr-insight.db --ollama-url http://ollama:11434
+          docker stop ollama
+          docker rm ollama
+          ls -lh /tmp/db/adr-insight.db
+
       - name: Save Docker image
         run: docker save adrinsight:latest | gzip > /tmp/adrinsight.tar.gz
 
@@ -66,6 +88,8 @@ jobs:
           scp -i ~/.ssh/deploy_key /tmp/adrinsight.tar.gz ec2-user@tyler.colberts.us:/tmp/adrinsight.tar.gz
           scp -i ~/.ssh/deploy_key docker-compose.prod.yml ec2-user@tyler.colberts.us:~/adrinsight/docker-compose.prod.yml
           scp -ri ~/.ssh/deploy_key docs/adr/ ec2-user@tyler.colberts.us:~/adrinsight/docs/adr/
+          scp -ri ~/.ssh/deploy_key docker/ ec2-user@tyler.colberts.us:~/adrinsight/docker/
+          scp -i ~/.ssh/deploy_key /tmp/db/adr-insight.db ec2-user@tyler.colberts.us:~/adrinsight/adr-insight.db
 
       - name: Deploy to server
         run: |

@@ -269,3 +269,58 @@ func TestHandleGetADRInvalidNumber(t *testing.T) {
 		t.Fatalf("expected 400, got %d", w.Code)
 	}
 }
+
+// --- GET /health tests ---
+
+func TestHandleHealthHealthy(t *testing.T) {
+	s, _ := setupServer(t, &mockStore{}, &mockEmbedder{}, &mockLLM{})
+	mux := s.NewServeMux()
+
+	req := httptest.NewRequest("GET", "/health", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	// DB is healthy (mockStore.IsEmpty succeeds), pipeline is set (API key "present")
+	status, ok := resp["status"].(string)
+	if !ok {
+		t.Fatal("expected status field")
+	}
+	// May be "degraded" if Ollama check fails in test, but should not be "unhealthy"
+	if status == "unhealthy" {
+		t.Errorf("expected healthy or degraded, got %s", status)
+	}
+}
+
+func TestHandleHealthNoPipeline(t *testing.T) {
+	ms := &mockStore{adrs: []store.ADRSummary{}}
+	s := &Server{Pipeline: nil, Store: ms, Port: 0}
+	mux := s.NewServeMux()
+
+	req := httptest.NewRequest("GET", "/health", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 (degraded), got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	status, ok := resp["status"].(string)
+	if !ok {
+		t.Fatal("expected status field")
+	}
+	if status == "unhealthy" {
+		t.Errorf("missing API key should be degraded, not unhealthy")
+	}
+}

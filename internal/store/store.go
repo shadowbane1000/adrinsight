@@ -1,3 +1,4 @@
+// Package store provides vector and metadata storage via SQLite.
 package store
 
 import "context"

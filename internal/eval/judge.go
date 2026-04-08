@@ -122,7 +122,7 @@ func (j *AnthropicJudge) score(ctx context.Context, question, expectedADRContent
 
 func parseJudgeResponse(resp *anthropic.Message) (JudgeResult, error) {
 	if len(resp.Content) == 0 {
-		return JudgeResult{}, fmt.Errorf("empty judge response")
+		return JudgeResult{}, fmt.Errorf("judge scoring: empty response from Anthropic API")
 	}
 
 	for _, block := range resp.Content {
@@ -140,7 +140,7 @@ func parseJudgeResponse(resp *anthropic.Message) (JudgeResult, error) {
 		}
 	}
 
-	return JudgeResult{}, fmt.Errorf("no text content in judge response")
+	return JudgeResult{}, fmt.Errorf("judge scoring: no text content in response (unexpected content types)")
 }
 
 func judgeSchema() map[string]any {

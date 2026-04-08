@@ -1,3 +1,4 @@
+// Package embedder provides text embedding via Ollama.
 package embedder
 
 import (

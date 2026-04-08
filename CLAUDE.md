@@ -76,6 +76,8 @@ Tyler is learning Go through this project. He's an expert in C#/C++/Java/Python.
 - SQLite with sqlite-vec + FTS5 + new `adr_relationships` table (006-p2-adr-intelligence)
 - Go 1.24+ (backend, unchanged) / JavaScript ES6+ (frontend) + Alpine.js 3.x (CDN, ~17kb gzipped), marked.js (existing) (007-ui-ux-polish)
 - localStorage (query history, filter/sort preferences) (007-ui-ux-polish)
+- Go 1.24+ + `log/slog` (stdlib, Go 1.21+), `net/http` (existing), `os/signal` (stdlib) (008-engineering-quality)
+- SQLite with sqlite-vec + FTS5 (unchanged) (008-engineering-quality)
 
 ## Recent Changes
 - 001-p1-foundation: Added Go 1.22+

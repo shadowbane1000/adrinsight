@@ -54,6 +54,7 @@ jobs:
       - name: Pre-build database
         run: |
           # Start Ollama, pull model, run reindex in CI to produce a ready-to-serve DB
+          docker rm -f ollama 2>/dev/null || true
           docker run -d --name ollama ollama/ollama
           echo "Waiting for Ollama..."
           for i in $(seq 1 30); do

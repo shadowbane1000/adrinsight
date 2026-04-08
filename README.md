@@ -18,7 +18,7 @@ ANTHROPIC_API_KEY=sk-... docker compose up
 
 Open [http://localhost:8081](http://localhost:8081) in your browser.
 
-On first start, Ollama downloads the embedding model (~275MB) and the app automatically indexes the ADRs. Subsequent starts skip both steps.
+On first start, Ollama downloads the embedding model (~275MB) and the app indexes the bundled ADRs. Subsequent starts skip indexing if the database is already populated.
 
 ## Local Development
 

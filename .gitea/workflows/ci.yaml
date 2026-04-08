@@ -64,9 +64,11 @@ jobs:
             sleep 1
           done
           docker exec ollama ollama pull nomic-embed-text
+          cp -r docs/adr /tmp/adr
+          mkdir -p /tmp/db
           docker run --rm \
             --link ollama:ollama \
-            -v "$PWD/docs/adr:/data/adr:ro" \
+            -v /tmp/adr:/data/adr:ro \
             -v /tmp/db:/data \
             adrinsight:latest \
             ./adr-insight reindex --adr-dir /data/adr --db /data/adr-insight.db --ollama-url http://ollama:11434

@@ -15,7 +15,7 @@ services:
       - http://ollama:11434
     volumes:
       - adr-data:/data
-      - adr-docs:/data/adr:ro
+      - ./docs/adr:/data/adr:ro
     depends_on:
       - ollama
     restart: unless-stopped
@@ -35,5 +35,4 @@ services:
 
 volumes:
   adr-data:
-  adr-docs:
   ollama-models:

@@ -64,17 +64,18 @@ jobs:
             sleep 1
           done
           docker exec ollama ollama pull nomic-embed-text
-          cp -r docs/adr /tmp/adr
-          mkdir -p /tmp/db
-          docker run --rm \
+          # Run reindex container, copy ADR files in via docker cp
+          docker create --name reindex \
             --link ollama:ollama \
-            -v /tmp/adr:/data/adr:ro \
-            -v /tmp/db:/data \
             adrinsight:latest \
             ./adr-insight reindex --adr-dir /data/adr --db /data/adr-insight.db --ollama-url http://ollama:11434
+          docker cp docs/adr/. reindex:/data/adr/
+          docker start -a reindex
+          docker cp reindex:/data/adr-insight.db /tmp/adr-insight.db
+          docker rm reindex
           docker stop ollama
           docker rm ollama
-          ls -lh /tmp/db/adr-insight.db
+          ls -lh /tmp/adr-insight.db
 
       - name: Save Docker image
         run: docker save adrinsight:latest | gzip > /tmp/adrinsight.tar.gz
@@ -92,7 +93,7 @@ jobs:
           scp -i ~/.ssh/deploy_key docker-compose.prod.yml ec2-user@tyler.colberts.us:~/adrinsight/docker-compose.prod.yml
           scp -ri ~/.ssh/deploy_key docs/adr/ ec2-user@tyler.colberts.us:~/adrinsight/docs/adr/
           scp -ri ~/.ssh/deploy_key docker/ ec2-user@tyler.colberts.us:~/adrinsight/docker/
-          scp -i ~/.ssh/deploy_key /tmp/db/adr-insight.db ec2-user@tyler.colberts.us:~/adrinsight/adr-insight.db
+          scp -i ~/.ssh/deploy_key /tmp/adr-insight.db ec2-user@tyler.colberts.us:~/adrinsight/adr-insight.db
 
       - name: Deploy to server
         run: |

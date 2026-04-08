@@ -65,6 +65,7 @@ jobs:
           done
           docker exec ollama ollama pull nomic-embed-text
           # Run reindex container, copy ADR files in via docker cp
+          docker rm -f reindex 2>/dev/null || true
           docker create --name reindex \
             --link ollama:ollama \
             adrinsight:latest \

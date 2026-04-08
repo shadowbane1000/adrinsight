@@ -4,7 +4,7 @@ AI-powered search and reasoning over Architecture Decision Records.
 
 ADR Insight lets you ask natural-language questions about your project's architectural decisions and get synthesized answers with citations to the source ADRs. It combines a RAG pipeline (retrieval-augmented generation) with a web UI for browsing and querying.
 
-Built using **spec-driven development** with a modified version of GitHub's spec-kit that includes ADR generation as part of the development workflow. Any project that maintains ADRs in the standard markdown format can use ADR Insight.
+Built using **spec-driven development** with a [fork of spec-kit](https://github.com/shadowbane1000/spec-kit) that adds ADR generation and specification analysis passes to the original workflow. Any project that maintains ADRs in the standard markdown format can use ADR Insight.
 
 ## Quick Start (Docker)
 

@@ -43,8 +43,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: lint-test-build
-    # TODO: Change back to refs/heads/main before merging
-    if: github.ref == 'refs/heads/009-gitea-autodeploy' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
 

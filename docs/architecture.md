@@ -71,8 +71,7 @@ adr-insight/
 │   └── static/                  # HTML/CSS/JS for the web UI
 ├── docs/
 │   ├── adr/                     # project's own ADRs (also demo dataset)
-│   ├── architecture.md          # this file
-│   └── roadmap.md               # phased roadmap
+│   └── architecture.md          # this file
 ├── testdata/
 │   ├── eval/                    # evaluation test cases and baseline
 │   └── *.md                     # sample ADRs for testing

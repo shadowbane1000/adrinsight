@@ -39,3 +39,89 @@ jobs:
         run: ./adr-insight eval
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: lint-test-build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t adrinsight:latest .
+
+      - name: Pre-build database
+        run: |
+          # Start Ollama, pull model, run reindex in CI to produce a ready-to-serve DB
+          docker rm -f ollama 2>/dev/null || true
+          docker run -d --name ollama ollama/ollama
+          echo "Waiting for Ollama..."
+          for i in $(seq 1 30); do
+            if docker exec ollama ollama list >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+          docker exec ollama ollama pull nomic-embed-text
+          # Run reindex container, copy ADR files in via docker cp
+          docker rm -f reindex 2>/dev/null || true
+          docker create --name reindex \
+            --link ollama:ollama \
+            adrinsight:latest \
+            ./adr-insight reindex --adr-dir /app/adr --db /app/adr-insight.db --ollama-url http://ollama:11434
+          docker cp docs/adr reindex:/app/adr
+          docker start -a reindex
+          docker cp reindex:/app/adr-insight.db /tmp/adr-insight.db
+          docker rm reindex
+          docker stop ollama
+          docker rm ollama
+          ls -lh /tmp/adr-insight.db
+
+      - name: Save Docker image
+        run: docker save adrinsight:latest | gzip > /tmp/adrinsight.tar.gz
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H tyler.colberts.us >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Upload to server
+        run: |
+          scp -i ~/.ssh/deploy_key /tmp/adrinsight.tar.gz ec2-user@tyler.colberts.us:/tmp/adrinsight.tar.gz
+          scp -i ~/.ssh/deploy_key docker-compose.prod.yml ec2-user@tyler.colberts.us:~/adrinsight/docker-compose.prod.yml
+          scp -ri ~/.ssh/deploy_key docs/adr/ ec2-user@tyler.colberts.us:~/adrinsight/docs/adr/
+          scp -ri ~/.ssh/deploy_key docker/ ec2-user@tyler.colberts.us:~/adrinsight/docker/
+          scp -i ~/.ssh/deploy_key /tmp/adr-insight.db ec2-user@tyler.colberts.us:~/adrinsight/adr-insight.db
+
+      - name: Deploy to server
+        run: |
+          ssh -i ~/.ssh/deploy_key ec2-user@tyler.colberts.us << 'DEPLOY'
+            set -e
+            cd ~/adrinsight
+
+            # Load the new image
+            gunzip -c /tmp/adrinsight.tar.gz | docker load
+            rm /tmp/adrinsight.tar.gz
+
+            # Restart with new image
+            docker compose -f docker-compose.prod.yml up -d --force-recreate app
+
+            # Wait for health check
+            echo "Waiting for health check..."
+            for i in $(seq 1 30); do
+              if curl -sf http://localhost:8081/health > /dev/null 2>&1; then
+                echo "Deploy successful — health check passed"
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "WARNING: Health check did not pass within 60 seconds"
+            docker compose -f docker-compose.prod.yml logs --tail 20 app
+            exit 1
+          DEPLOY
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

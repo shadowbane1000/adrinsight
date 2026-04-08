@@ -1,0 +1,39 @@
+services:
+  app:
+    image: adrinsight:latest
+    ports:
+      - "127.0.0.1:8081:8081"
+    env_file: .env
+    command:
+      - ./adr-insight
+      - serve
+      - --adr-dir
+      - /data/adr
+      - --db
+      - /data/adr-insight.db
+      - --ollama-url
+      - http://ollama:11434
+    volumes:
+      - ./adr-insight.db:/data/adr-insight.db
+      - ./docs/adr:/data/adr:ro
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  ollama:
+    image: ollama/ollama
+    entrypoint: ["/entrypoint.sh"]
+    environment:
+      - OLLAMA_KEEP_ALIVE=-1
+    volumes:
+      - ./docker/ollama-entrypoint.sh:/entrypoint.sh:ro
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  ollama-models:

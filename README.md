@@ -131,6 +131,7 @@ This project's own [Architecture Decision Records](docs/adr/) serve as both docu
 | [ADR-020](docs/adr/ADR-020-adr-relationship-model.md) | ADR Relationship Model |
 | [ADR-021](docs/adr/ADR-021-llm-relationship-classification.md) | LLM Relationship Classification |
 | [ADR-022](docs/adr/ADR-022-chunking-strategy-validated.md) | Chunking Strategy Validated in Phase 2 |
+| [ADR-023](docs/adr/ADR-023-alpine-js-reactive-ui.md) | Alpine.js for Reactive UI |
 
 ## Author
 

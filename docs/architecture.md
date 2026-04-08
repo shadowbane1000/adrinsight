@@ -116,8 +116,12 @@ swappable without changing callers (see ADR-001, Constitution Principle I).
   guarantees valid response format. See ADR-009.
 - **Full ADR expansion** — search retrieves chunks but synthesis gets full
   ADR files from disk. See ADR-010.
-- **Web UI** uses vanilla HTML/CSS/JS with marked.js (CDN) for markdown
-  rendering. Static files embedded in binary via `go:embed`. See ADR-012, ADR-013.
+- **Web UI** uses Alpine.js for reactive state management and marked.js (CDN)
+  for markdown rendering. A unified content area with a navigation stack
+  replaces the previous split answer/detail layout. Features include status
+  badges, filter/sort, inline citations, breadcrumb navigation, query history,
+  responsive sidebar, and animated transitions. Static files embedded in
+  binary via `go:embed`. See ADR-012, ADR-013, ADR-023.
 - **Auto-reindex on startup** — the `serve` command checks if the database
   is empty and runs reindex automatically, with retry backoff for Ollama.
 - **Docker multi-stage build** — `golang:bookworm` (build) to

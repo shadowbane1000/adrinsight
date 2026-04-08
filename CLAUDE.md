@@ -74,6 +74,8 @@ Tyler is learning Go through this project. He's an expert in C#/C++/Java/Python.
 - SQLite with sqlite-vec + FTS5 virtual tables (005-p2-retrieval-improvements)
 - Go 1.24+ (same as M1-M4b) + mattn/go-sqlite3 (CGO), sqlite-vec, Anthropic Go SDK, Ollama (006-p2-adr-intelligence)
 - SQLite with sqlite-vec + FTS5 + new `adr_relationships` table (006-p2-adr-intelligence)
+- Go 1.24+ (backend, unchanged) / JavaScript ES6+ (frontend) + Alpine.js 3.x (CDN, ~17kb gzipped), marked.js (existing) (007-ui-ux-polish)
+- localStorage (query history, filter/sort preferences) (007-ui-ux-polish)
 
 ## Recent Changes
 - 001-p1-foundation: Added Go 1.22+

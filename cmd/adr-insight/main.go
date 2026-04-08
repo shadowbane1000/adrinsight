@@ -193,6 +193,16 @@ func cmdServe(args []string, cfg *config.Config) {
 
 	autoReindex(context.Background(), st, emb, *adrDir)
 
+	// Warm up Ollama by loading the embedding model before serving requests.
+	go func() {
+		slog.Info("warming up embedding model")
+		if _, err := emb.Embed(context.Background(), []string{"warmup"}); err != nil {
+			slog.Warn("embedding model warmup failed", "error", err)
+		} else {
+			slog.Info("embedding model ready")
+		}
+	}()
+
 	var pipeline *rag.Pipeline
 	if cfg.AnthropicKey == "" {
 		slog.Warn("ANTHROPIC_API_KEY not set — query endpoint disabled, ADR browsing available")

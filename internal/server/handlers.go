@@ -31,6 +31,7 @@ type adrSummaryJSON struct {
 	Number int    `json:"number"`
 	Title  string `json:"title"`
 	Status string `json:"status"`
+	Date   string `json:"date,omitempty"`
 	Path   string `json:"path"`
 }
 
@@ -100,10 +101,15 @@ func (s *Server) handleListADRs(w http.ResponseWriter, r *http.Request) {
 
 	out := adrListResponse{ADRs: make([]adrSummaryJSON, len(adrs))}
 	for i, a := range adrs {
+		date := ""
+		if content, err := os.ReadFile(a.Path); err == nil {
+			date = extractDate(string(content))
+		}
 		out.ADRs[i] = adrSummaryJSON{
 			Number: a.Number,
 			Title:  a.Title,
 			Status: a.Status,
+			Date:   date,
 			Path:   a.Path,
 		}
 	}

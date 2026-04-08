@@ -1,6 +1,6 @@
 # ADR-012: marked.js via CDN for Client-Side Markdown Rendering
 
-**Status:** Accepted  
+**Status:** Accepted (note: ADR-023 amends the "no frontend framework" context — Alpine.js is now used alongside marked.js)  
 **Date:** 2026-04-06  
 **Deciders:** Tyler Colbert
 

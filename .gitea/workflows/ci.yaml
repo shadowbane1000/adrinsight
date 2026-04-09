@@ -92,8 +92,8 @@ jobs:
           ssh -i ~/.ssh/deploy_key ec2-user@tyler.colberts.us 'mkdir -p ~/adrinsight/docs/adr ~/adrinsight/docker'
           scp -i ~/.ssh/deploy_key /tmp/adrinsight.tar.gz ec2-user@tyler.colberts.us:/tmp/adrinsight.tar.gz
           scp -i ~/.ssh/deploy_key docker-compose.prod.yml ec2-user@tyler.colberts.us:~/adrinsight/docker-compose.prod.yml
-          scp -ri ~/.ssh/deploy_key docs/adr/ ec2-user@tyler.colberts.us:~/adrinsight/docs/adr/
-          scp -ri ~/.ssh/deploy_key docker/ ec2-user@tyler.colberts.us:~/adrinsight/docker/
+          scp -i ~/.ssh/deploy_key docs/adr/*.md ec2-user@tyler.colberts.us:~/adrinsight/docs/adr/
+          scp -i ~/.ssh/deploy_key docker/ollama-entrypoint.sh ec2-user@tyler.colberts.us:~/adrinsight/docker/ollama-entrypoint.sh
           scp -i ~/.ssh/deploy_key /tmp/adr-insight.db ec2-user@tyler.colberts.us:~/adrinsight/adr-insight.db
 
       - name: Deploy to server

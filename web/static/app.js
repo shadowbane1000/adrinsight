@@ -249,6 +249,17 @@
           if (s) this.sort = s;
         } catch (e) {}
         this.load();
+
+        // Load custom about page if available
+        fetch("/about.html").then(function (res) {
+          if (res.ok) return res.text();
+          return null;
+        }).then(function (html) {
+          if (html) {
+            var el = document.getElementById("about-content");
+            if (el) el.innerHTML = html;
+          }
+        }).catch(function () {});
       }
     });
 

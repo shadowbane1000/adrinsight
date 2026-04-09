@@ -224,6 +224,7 @@ func cmdServe(args []string, cfg *config.Config) {
 		Parser:               parser.NewMarkdownParser(),
 		Port:                 *port,
 		DevMode:              *devMode,
+		ADRDir:               *adrDir,
 		OllamaURL:            *ollamaURL,
 		SlowRequestThreshold: cfg.SlowRequestThreshold,
 	}

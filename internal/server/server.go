@@ -20,6 +20,7 @@ type Server struct {
 	Parser               parser.Parser
 	Port                 int
 	DevMode              bool
+	ADRDir               string
 	OllamaURL            string
 	SlowRequestThreshold time.Duration
 }
@@ -31,6 +32,7 @@ func (s *Server) NewServeMux() *http.ServeMux {
 	mux.HandleFunc("GET /adrs", s.handleListADRs)
 	mux.HandleFunc("GET /adrs/{number}", s.handleGetADR)
 	mux.HandleFunc("GET /health", s.handleHealth)
+	mux.HandleFunc("GET /about.html", s.handleAbout)
 
 	if s.DevMode {
 		slog.Info("serving static files from disk", "path", "web/static/")

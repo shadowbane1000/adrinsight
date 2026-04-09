@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -258,6 +259,15 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, code, healthResponse{Status: overall, Components: components})
+}
+
+func (s *Server) handleAbout(w http.ResponseWriter, r *http.Request) {
+	path := filepath.Join(s.ADRDir, "about.html")
+	if _, err := os.Stat(path); err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, path)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

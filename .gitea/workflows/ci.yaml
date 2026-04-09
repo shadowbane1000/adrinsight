@@ -102,11 +102,14 @@ jobs:
             set -e
             cd ~/adrinsight
 
+            # Stop app before loading new image/DB to prevent DB corruption
+            docker compose -f docker-compose.prod.yml stop app 2>/dev/null || true
+
             # Load the new image
             gunzip -c /tmp/adrinsight.tar.gz | docker load
             rm /tmp/adrinsight.tar.gz
 
-            # Restart with new image
+            # Start with new image
             docker compose -f docker-compose.prod.yml up -d --force-recreate app
 
             # Wait for health check

@@ -89,7 +89,7 @@ jobs:
 
       - name: Upload to server
         run: |
-          ssh -i ~/.ssh/deploy_key ec2-user@tyler.colberts.us 'mkdir -p ~/adrinsight/docs/adr ~/adrinsight/docker'
+          ssh -i ~/.ssh/deploy_key ec2-user@tyler.colberts.us 'mkdir -p ~/adrinsight/docs/adr ~/adrinsight/docker; cd ~/adrinsight && docker compose -f docker-compose.prod.yml stop app 2>/dev/null || true'
           scp -i ~/.ssh/deploy_key /tmp/adrinsight.tar.gz ec2-user@tyler.colberts.us:/tmp/adrinsight.tar.gz
           scp -i ~/.ssh/deploy_key docker-compose.prod.yml ec2-user@tyler.colberts.us:~/adrinsight/docker-compose.prod.yml
           scp -i ~/.ssh/deploy_key docs/adr/*.md ec2-user@tyler.colberts.us:~/adrinsight/docs/adr/
@@ -101,9 +101,6 @@ jobs:
           ssh -i ~/.ssh/deploy_key ec2-user@tyler.colberts.us << 'DEPLOY'
             set -e
             cd ~/adrinsight
-
-            # Stop app before loading new image/DB to prevent DB corruption
-            docker compose -f docker-compose.prod.yml stop app 2>/dev/null || true
 
             # Load the new image
             gunzip -c /tmp/adrinsight.tar.gz | docker load

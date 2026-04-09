@@ -68,10 +68,10 @@ jobs:
           docker create --name reindex \
             --link ollama:ollama \
             adrinsight:latest \
-            ./adr-insight reindex --adr-dir /app/adr --db /app/adr-insight.db --ollama-url http://ollama:11434
-          docker cp docs/adr reindex:/app/adr
+            ./adr-insight reindex --adr-dir /data/adr --db /data/adr-insight.db --ollama-url http://ollama:11434
+          docker cp docs/adr reindex:/data/adr
           docker start -a reindex
-          docker cp reindex:/app/adr-insight.db /tmp/adr-insight.db
+          docker cp reindex:/data/adr-insight.db /tmp/adr-insight.db
           docker rm reindex
           docker stop ollama
           docker rm ollama

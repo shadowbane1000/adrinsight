@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y libsqlite3-0 ca-certificates && rm -rf 
 
 WORKDIR /app
 COPY --from=builder /app/adr-insight .
+RUN mkdir -p /data/adr
 
 EXPOSE 8081
 

@@ -23,12 +23,16 @@ type Server struct {
 	ADRDir               string
 	OllamaURL            string
 	SlowRequestThreshold time.Duration
+	RateLimitRequests    int
+	RateLimitWindow      time.Duration
+	MaxQueryLength       int
 }
 
 // NewServeMux creates and configures the HTTP routes.
 func (s *Server) NewServeMux() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /query", s.handleQuery)
+	rl := newRateLimiter(s.RateLimitRequests, s.RateLimitWindow)
+	mux.HandleFunc("POST /query", rateLimitMiddleware(rl, s.handleQuery))
 	mux.HandleFunc("GET /adrs", s.handleListADRs)
 	mux.HandleFunc("GET /adrs/{number}", s.handleGetADR)
 	mux.HandleFunc("GET /health", s.handleHealth)

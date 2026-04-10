@@ -227,6 +227,9 @@ func cmdServe(args []string, cfg *config.Config) {
 		ADRDir:               *adrDir,
 		OllamaURL:            *ollamaURL,
 		SlowRequestThreshold: cfg.SlowRequestThreshold,
+		RateLimitRequests:    cfg.RateLimitRequests,
+		RateLimitWindow:      cfg.RateLimitWindow,
+		MaxQueryLength:       cfg.MaxQueryLength,
 	}
 
 	// Graceful shutdown

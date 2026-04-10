@@ -22,6 +22,9 @@ type Config struct {
 	LogFormat            string
 	SlowRequestThreshold time.Duration
 	ShutdownTimeout      time.Duration
+	RateLimitRequests    int
+	RateLimitWindow      time.Duration
+	MaxQueryLength       int
 }
 
 // Load reads configuration from environment variables with defaults.
@@ -37,6 +40,9 @@ func Load() (*Config, error) {
 		LogFormat:            "json",
 		SlowRequestThreshold: 2 * time.Second,
 		ShutdownTimeout:      10 * time.Second,
+		RateLimitRequests:    10,
+		RateLimitWindow:      time.Minute,
+		MaxQueryLength:       500,
 	}
 
 	if v := os.Getenv("PORT"); v != "" {
@@ -101,6 +107,30 @@ func Load() (*Config, error) {
 			return nil, fmt.Errorf("invalid SHUTDOWN_TIMEOUT_S %q: %w", v, err)
 		}
 		cfg.ShutdownTimeout = time.Duration(s) * time.Second
+	}
+
+	if v := os.Getenv("RATE_LIMIT_REQUESTS"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid RATE_LIMIT_REQUESTS %q: %w", v, err)
+		}
+		cfg.RateLimitRequests = n
+	}
+
+	if v := os.Getenv("RATE_LIMIT_WINDOW_S"); v != "" {
+		s, err := strconv.Atoi(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid RATE_LIMIT_WINDOW_S %q: %w", v, err)
+		}
+		cfg.RateLimitWindow = time.Duration(s) * time.Second
+	}
+
+	if v := os.Getenv("MAX_QUERY_LENGTH"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid MAX_QUERY_LENGTH %q: %w", v, err)
+		}
+		cfg.MaxQueryLength = n
 	}
 
 	return cfg, nil

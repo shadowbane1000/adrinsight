@@ -311,8 +311,24 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ query: q })
         })
-          .then(function (res) { return res.json(); })
+          .then(function (res) {
+            if (res.status === 429) {
+              var retryAfter = res.headers.get("Retry-After") || "60";
+              return res.json().then(function (data) {
+                data._rateLimited = true;
+                data._retryAfter = parseInt(retryAfter, 10);
+                return data;
+              });
+            }
+            return res.json();
+          })
           .then(function (data) {
+            if (data._rateLimited) {
+              if (self._thinkingTimer) { clearTimeout(self._thinkingTimer); self._thinkingTimer = null; }
+              self.loading = false;
+              self.error = data.error || ("Too many requests. Please try again in " + data._retryAfter + " seconds.");
+              return;
+            }
             if (self._thinkingTimer) { clearTimeout(self._thinkingTimer); self._thinkingTimer = null; }
             self.loading = false;
 

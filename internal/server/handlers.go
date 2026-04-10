@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -66,6 +67,13 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 
 	if strings.TrimSpace(req.Query) == "" {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "query is required"})
+		return
+	}
+
+	if s.MaxQueryLength > 0 && len(req.Query) > s.MaxQueryLength {
+		writeJSON(w, http.StatusBadRequest, errorResponse{
+			Error: fmt.Sprintf("query too long: %d characters (maximum %d)", len(req.Query), s.MaxQueryLength),
+		})
 		return
 	}
 

@@ -9,7 +9,9 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/shadowbane1000/adrinsight/internal/llm"
 	"github.com/shadowbane1000/adrinsight/internal/rag"
@@ -101,7 +103,15 @@ func setupServer(t *testing.T, ms *mockStore, me *mockEmbedder, ml *mockLLM) (*S
 	}
 
 	p := &rag.Pipeline{Embedder: me, Store: ms, LLM: ml, ADRDir: dir, TopK: 5}
-	s := &Server{Pipeline: p, Store: ms, Port: 0}
+	s := &Server{
+		Pipeline:          p,
+		Store:             ms,
+		Port:              0,
+		ADRDir:            dir,
+		RateLimitRequests: 10,
+		RateLimitWindow:   time.Minute,
+		MaxQueryLength:    500,
+	}
 	return s, dir
 }
 
@@ -301,7 +311,7 @@ func TestHandleHealthHealthy(t *testing.T) {
 
 func TestHandleHealthNoPipeline(t *testing.T) {
 	ms := &mockStore{adrs: []store.ADRSummary{}}
-	s := &Server{Pipeline: nil, Store: ms, Port: 0}
+	s := &Server{Pipeline: nil, Store: ms, Port: 0, RateLimitRequests: 10, RateLimitWindow: time.Minute}
 	mux := s.NewServeMux()
 
 	req := httptest.NewRequest("GET", "/health", nil)
@@ -322,5 +332,124 @@ func TestHandleHealthNoPipeline(t *testing.T) {
 	}
 	if status == "unhealthy" {
 		t.Errorf("missing API key should be degraded, not unhealthy")
+	}
+}
+
+func TestRateLimiting(t *testing.T) {
+	s, _ := setupServer(t, &mockStore{}, &mockEmbedder{}, &mockLLM{})
+	s.RateLimitRequests = 2
+	s.RateLimitWindow = time.Minute
+	mux := s.NewServeMux()
+
+	for i := 0; i < 2; i++ {
+		body := bytes.NewBufferString(`{"query":"test"}`)
+		req := httptest.NewRequest("POST", "/query", body)
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("request %d: expected 200, got %d: %s", i+1, w.Code, w.Body.String())
+		}
+	}
+
+	// Third request should be rate limited
+	body := bytes.NewBufferString(`{"query":"test"}`)
+	req := httptest.NewRequest("POST", "/query", body)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429, got %d: %s", w.Code, w.Body.String())
+	}
+	if w.Header().Get("Retry-After") == "" {
+		t.Error("expected Retry-After header")
+	}
+}
+
+func TestRateLimitDifferentIPs(t *testing.T) {
+	s, _ := setupServer(t, &mockStore{}, &mockEmbedder{}, &mockLLM{})
+	s.RateLimitRequests = 1
+	s.RateLimitWindow = time.Minute
+	mux := s.NewServeMux()
+
+	// Exhaust rate limit for IP 1
+	body := bytes.NewBufferString(`{"query":"test"}`)
+	req := httptest.NewRequest("POST", "/query", body)
+	req.Header.Set("X-Forwarded-For", "1.1.1.1")
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("first IP first request: expected 200, got %d", w.Code)
+	}
+
+	// Different IP should still work
+	body = bytes.NewBufferString(`{"query":"test"}`)
+	req = httptest.NewRequest("POST", "/query", body)
+	req.Header.Set("X-Forwarded-For", "2.2.2.2")
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("second IP: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRateLimitNonQueryEndpointsUnaffected(t *testing.T) {
+	s, _ := setupServer(t, &mockStore{}, &mockEmbedder{}, &mockLLM{})
+	s.RateLimitRequests = 1
+	s.RateLimitWindow = time.Minute
+	mux := s.NewServeMux()
+
+	// Exhaust rate limit
+	body := bytes.NewBufferString(`{"query":"test"}`)
+	req := httptest.NewRequest("POST", "/query", body)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	// /adrs should still work
+	req = httptest.NewRequest("GET", "/adrs", nil)
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("/adrs: expected 200, got %d", w.Code)
+	}
+
+	// /health should still work
+	req = httptest.NewRequest("GET", "/health", nil)
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("/health: expected 200, got %d", w.Code)
+	}
+}
+
+func TestQueryLengthLimit(t *testing.T) {
+	s, _ := setupServer(t, &mockStore{}, &mockEmbedder{}, &mockLLM{})
+	s.MaxQueryLength = 20
+	mux := s.NewServeMux()
+
+	// Short query — OK
+	body := bytes.NewBufferString(`{"query":"short"}`)
+	req := httptest.NewRequest("POST", "/query", body)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("short query: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Long query — rejected
+	long := strings.Repeat("x", 21)
+	body = bytes.NewBufferString(`{"query":"` + long + `"}`)
+	req = httptest.NewRequest("POST", "/query", body)
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("long query: expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp errorResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !strings.Contains(resp.Error, "too long") {
+		t.Errorf("expected 'too long' in error, got: %s", resp.Error)
 	}
 }

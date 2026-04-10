@@ -60,6 +60,7 @@ type errorResponse struct {
 }
 
 func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 4096)
 	var req queryRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
@@ -85,7 +86,8 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := s.Pipeline.Query(r.Context(), req.Query)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		slog.Error("query failed", "error", err, "request_id", RequestID(r.Context()))
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to process query"})
 		return
 	}
 
@@ -107,7 +109,8 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleListADRs(w http.ResponseWriter, r *http.Request) {
 	adrs, err := s.Store.ListADRs(r.Context())
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		slog.Error("listing ADRs failed", "error", err, "request_id", RequestID(r.Context()))
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list ADRs"})
 		return
 	}
 
@@ -138,7 +141,8 @@ func (s *Server) handleGetADR(w http.ResponseWriter, r *http.Request) {
 
 	adrs, err := s.Store.ListADRs(r.Context())
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		slog.Error("listing ADRs failed", "error", err, "request_id", RequestID(r.Context()))
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list ADRs"})
 		return
 	}
 
@@ -154,8 +158,18 @@ func (s *Server) handleGetADR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate path is within ADR directory to prevent traversal.
+	absPath, _ := filepath.Abs(found.Path)
+	absADRDir, _ := filepath.Abs(s.ADRDir)
+	if !strings.HasPrefix(absPath, absADRDir+string(filepath.Separator)) {
+		slog.Warn("ADR path outside ADR directory", "path", found.Path, "adr_dir", s.ADRDir, "request_id", RequestID(r.Context()))
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "ADR " + numStr + " not found"})
+		return
+	}
+
 	content, err := os.ReadFile(found.Path)
 	if err != nil {
+		slog.Error("reading ADR file failed", "path", found.Path, "error", err, "request_id", RequestID(r.Context()))
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "could not read ADR file"})
 		return
 	}

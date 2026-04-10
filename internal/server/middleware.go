@@ -25,10 +25,26 @@ type rateLimiter struct {
 }
 
 func newRateLimiter(limit int, window time.Duration) *rateLimiter {
-	return &rateLimiter{
+	rl := &rateLimiter{
 		entries: make(map[string]*rateLimitEntry),
 		limit:   limit,
 		window:  window,
+	}
+	go rl.cleanup()
+	return rl
+}
+
+func (rl *rateLimiter) cleanup() {
+	ticker := time.NewTicker(time.Minute)
+	for range ticker.C {
+		rl.mu.Lock()
+		now := time.Now()
+		for k, e := range rl.entries {
+			if now.After(e.windowEnd) {
+				delete(rl.entries, k)
+			}
+		}
+		rl.mu.Unlock()
 	}
 }
 
@@ -77,11 +93,14 @@ func RequestID(ctx context.Context) string {
 	return ""
 }
 
-// clientIP extracts the client's real IP address from the request,
-// respecting X-Forwarded-For for proxied deployments.
+// clientIP extracts the client's real IP address from the request.
+// Prefers X-Real-IP (set by Nginx) over X-Forwarded-For, which can
+// contain Docker-internal IPs in multi-proxy chains.
 func clientIP(r *http.Request) string {
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return strings.TrimSpace(xri)
+	}
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// First IP in the chain is the original client
 		if ip, _, ok := strings.Cut(xff, ","); ok {
 			return strings.TrimSpace(ip)
 		}

@@ -96,9 +96,9 @@ All settings can be configured via environment variables. Flags take precedence 
 | `LOG_FORMAT` | `json` | Log output format: json, text |
 | `SLOW_REQUEST_MS` | `2000` | Threshold (ms) for slow request warnings |
 | `SHUTDOWN_TIMEOUT_S` | `10` | Graceful shutdown drain timeout (seconds) |
-| `RATE_LIMIT_REQUESTS` | `10` | Max queries per IP per rate limit window |
-| `RATE_LIMIT_WINDOW_S` | `60` | Rate limit window duration (seconds) |
-| `MAX_QUERY_LENGTH` | `500` | Maximum query length in characters |
+| `RATE_LIMIT_REQUESTS` | `20` | Max queries per IP per rate limit window |
+| `RATE_LIMIT_WINDOW_S` | `3600` | Rate limit window duration (seconds) |
+| `MAX_QUERY_LENGTH` | `200` | Maximum query length in characters |
 
 ### Quality Checks
 

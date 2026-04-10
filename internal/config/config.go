@@ -40,9 +40,9 @@ func Load() (*Config, error) {
 		LogFormat:            "json",
 		SlowRequestThreshold: 2 * time.Second,
 		ShutdownTimeout:      10 * time.Second,
-		RateLimitRequests:    10,
-		RateLimitWindow:      time.Minute,
-		MaxQueryLength:       500,
+		RateLimitRequests:    20,
+		RateLimitWindow:      time.Hour,
+		MaxQueryLength:       200,
 	}
 
 	if v := os.Getenv("PORT"); v != "" {

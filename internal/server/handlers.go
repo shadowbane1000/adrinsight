@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -99,6 +100,7 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 	if out.Citations == nil {
 		out.Citations = []citation{}
 	}
+	slog.Info("query processed", "query", req.Query, "request_id", RequestID(r.Context()))
 	writeJSON(w, http.StatusOK, out)
 }
 

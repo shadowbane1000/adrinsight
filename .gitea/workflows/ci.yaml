@@ -8,7 +8,7 @@ on:
 
 jobs:
   lint-test-build:
-    runs-on: ubuntu-latest
+    runs-on: small
     steps:
       - uses: actions/checkout@v4
 
@@ -20,8 +20,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libsqlite3-dev
+          apt-get update
+          apt-get install -y libsqlite3-dev
 
       - name: Install golangci-lint
         run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.64.8
@@ -41,7 +41,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: large
     needs: lint-test-build
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
